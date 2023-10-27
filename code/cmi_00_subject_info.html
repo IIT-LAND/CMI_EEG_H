@@ -366,6 +366,7 @@ libraries(&quot;here&quot;,&quot;tidyverse&quot;,&quot;report&quot;)</code></pre
 <h3>Import and set up dataframes</h3>
 <pre class="r"><code># set paths
 tidypath = here(&quot;data&quot;,&quot;tidy&quot;)
+resultpath = here(&quot;results&quot;)
 
 # import data
 H_data = read.csv(file.path(tidypath,&quot;tidy_H.csv&quot;))
@@ -461,6 +462,15 @@ sprintf(&quot;Total N autistic female subjects: %s&quot;, N_a_females)</code></p
 <pre class="r"><code>N_a_males = sum(summ_tb_2[summ_tb_2$dx1_short == &quot;ASD&quot; &amp; summ_tb_2$sex == &quot;Male&quot;, &quot;N&quot;])
 sprintf(&quot;Total N autistic male subjects: %s&quot;, N_a_males)</code></pre>
 <pre><code>## [1] &quot;Total N autistic male subjects: 286&quot;</code></pre>
+</div>
+<div id="save-subject-ids" class="section level1">
+<h1>Save subject IDs</h1>
+<pre class="r"><code>subids = df_rs %&gt;%
+  filter(exclude ==&quot;No&quot; &amp; sex == &quot;Male&quot;) %&gt;%
+  select(subid) %&gt;%
+  distinct()
+
+write.csv(subids, file = file.path(resultpath,&quot;00_subids_td+autism_males.csv&quot;))</code></pre>
 </div>
 
 
