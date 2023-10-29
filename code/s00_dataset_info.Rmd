@@ -1,5 +1,5 @@
 ---
-title: "Subject Info"
+title: "Dataset Info"
 author: "NatashaBertelsen"
 date: "2023-10-01"
 output: html_document
@@ -19,7 +19,7 @@ libraries("here","tidyverse","report")
 ```{r, warning=FALSE, message=FALSE}
 # set paths
 tidypath = here("data","tidy")
-resultpath = here("results")
+resultpath = here("results", "reval", "global")
 
 # import data
 H_data = read.csv(file.path(tidypath,"tidy_H.csv"))
