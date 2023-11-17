@@ -21,7 +21,7 @@ plots:
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/pls
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/sigclust
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/topoplots
-'
+ -
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/adjH
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/d
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/pheno
