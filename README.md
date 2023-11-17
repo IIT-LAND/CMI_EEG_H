@@ -21,7 +21,7 @@ plots:
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/pls
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/sigclust
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/topoplots
- -
+  - ...
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/adjH
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/d
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/pheno
@@ -199,10 +199,10 @@ data to input:
 results:
 
 plots (same for rsclosed):
-- 10_adjH_topoplot_mean_d_electH_tdva1.jpg
-- 10_adjH_topoplot_mean_d_electH_tdva2.jpg
-- 10_adjH_topoplot_mean_d_PC1&4recH_tdva1.jpg
-- 10_adjH_topoplot_mean_d_PC1&4recH_tdva2.jpg
+- plots/reval/global/rsopen/d/10_adjH_topoplot_mean_d_electH_tdva1.jpg
+- plots/reval/global/rsopen/d/10_adjH_topoplot_mean_d_electH_tdva2.jpg
+- plots/reval/global/rsopen/d/10_adjH_topoplot_mean_d_PC1&4recH_tdva1.jpg
+- plots/reval/global/rsopen/d/10_adjH_topoplot_mean_d_PC1&4recH_tdva2.jpg
 ---
 
 ### 11 Pheno analyses
@@ -218,12 +218,12 @@ results:
 - 11_adjH_restingstate_pheno_summary.csv
 
 plots (same for rsclosed):
-- 11_adjH_age.pdf
-- 11_adjH_fiq.pdf
-- 11_adjH_assq_total.pdf
-- 11_adjH_rbs_total.pdf
-- 11_adjH_scq_total.pdf
-- 11_adjH_srs_total_T.pdf
+- plots/reval/global/rsopen/pheno/11_adjH_age.pdf
+- plots/reval/global/rsopen/pheno/11_adjH_fiq.pdf
+- plots/reval/global/rsopen/pheno/11_adjH_assq_total.pdf
+- plots/reval/global/rsopen/pheno/11_adjH_rbs_total.pdf
+- plots/reval/global/rsopen/pheno/11_adjH_scq_total.pdf
+- plots/reval/global/rsopen/pheno/11_adjH_srs_total_T.pdf
 ---
 
 ### 12 prepare dataframes for PLS
@@ -299,12 +299,12 @@ data to input:
 - 14_rsopen_ALLrev_bootlim_data4plotting_LV1_ci95.csv
 
 plots (same for rsclosed):
-- 16_rsopen_ALL_BSR_LV1_corr.pdf
-- 16_rsclosed_ALL_BSR_LV1_corr.pdf
-- 16_rsopen_LV1_corr.pdf
-- 16_rsclosed_LV1_corr.pdf
-- 16_rsopen_LV1_corr.pdf
-- 16_rsclosed_LV1_corr.pdf
+- plots/reval/global/rsopen/pls/16_rsopen_ALL_BSR_LV1_corr.pdf
+- plots/reval/global/rsopen/pls/16_rsclosed_ALL_BSR_LV1_corr.pdf
+- plots/reval/global/rsopen/pls/16_rsopen_LV1_corr.pdf
+- plots/reval/global/rsopen/pls/16_rsclosed_LV1_corr.pdf
+- plots/reval/global/rsopen/pls/16_rsopen_LV1_corr.pdf
+- plots/reval/global/rsopen/pls/16_rsclosed_LV1_corr.pdf
 ---
 
 ### 17
@@ -316,6 +316,6 @@ data to input:
 - 13_pls_rsclosed_ALL_BSR_LV1.csv
 
 plots (same for rsclosed):
-- 17_adjH_topoplot_PLS_BSR.jpg
-- 17_adjH_corr_matrix_byblock_BSR.jpg
+- plots/reval/global/rsopen/pls/17_adjH_topoplot_PLS_BSR.jpg
+- plots/reval/global/rsopen/pls/17_adjH_corr_matrix_byblock_BSR.jpg
 ---
