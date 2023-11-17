@@ -25,7 +25,7 @@ rsopen_plotpath = file.path(plotpath, "rsopen")
 rsclosed_plotpath = file.path(plotpath, "rsclosed")
 resultpath = here("results", "reval", "global")
 
-tidy_data = read.csv(file.path(tidypath,"tidy_H_revalsubgroups_global.csv"))
+tidy_data = read.csv(file.path(tidypath,"tidy_adjH_revalsubgroups_global.csv"))
 ```
 
 ### Set color codes for plots
@@ -311,7 +311,9 @@ output_res[, "td_v_a1_fdr"] = p.adjust(output_res[,"td_v_a1_p"], method = "fdr")
 output_res[, "td_v_a2_fdr"] = p.adjust(output_res[,"td_v_a2_p"], method = "fdr") 
 output_res[, "a1_v_a2_fdr"] = p.adjust(output_res[,"a1_v_a2_p"], method = "fdr") 
 
-write.csv(output_res, file = file.path(resultpath, "11_rsopen_pheno_analyses.csv"))
+write.csv(output_res, file = file.path(resultpath, "11_adjH_rsopen_pheno_analyses.csv"))
+
+output_res
 ```
 
 ### Plot eyes open - subtypes
@@ -320,7 +322,7 @@ write.csv(output_res, file = file.path(resultpath, "11_rsopen_pheno_analyses.csv
 dt2plot = dt4mod_sbt
 
 # set constants
-a_ratio = .7
+a_ratio = 1.2
 plot_title = 18
 x_title = 16
 x_ticks = 12
@@ -343,7 +345,7 @@ rseo_age_plot = ggplot(data = dt2plot, aes(x = subtype, y = age,  fill = subtype
          aspect.ratio = a_ratio)
 
 rseo_age_plot
-ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_age.pdf"))
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_age.pdf"))
 
 # Plot fiq
 rseo_fiq_plot = ggplot(data = dt2plot, aes(x = subtype, y = fiq,  fill = subtype)) +
@@ -362,7 +364,7 @@ rseo_fiq_plot = ggplot(data = dt2plot, aes(x = subtype, y = fiq,  fill = subtype
          aspect.ratio = a_ratio)
 
 rseo_fiq_plot
-ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_fiq.pdf"))
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_fiq.pdf"))
 
 # Plot srs
 rseo_srs_plot = ggplot(data = dt2plot, aes(x = subtype, y = srs_total_T,  fill = subtype)) +
@@ -381,7 +383,7 @@ rseo_srs_plot = ggplot(data = dt2plot, aes(x = subtype, y = srs_total_T,  fill =
          aspect.ratio = a_ratio)
 
 rseo_srs_plot
-ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_srs_total_T.pdf"))
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_srs_total_T.pdf"))
 
 
 rseo_rbs_plot = ggplot(data = dt2plot, aes(x = subtype, y = rbs_total,  fill = subtype)) +
@@ -400,7 +402,7 @@ rseo_rbs_plot = ggplot(data = dt2plot, aes(x = subtype, y = rbs_total,  fill = s
          aspect.ratio = a_ratio)
 
 rseo_rbs_plot
-ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_rbs_total.pdf"))
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_rbs_total.pdf"))
 
 
 rseo_scq_plot = ggplot(data = dt2plot, aes(x = subtype, y = scq_total,  fill = subtype)) +
@@ -419,7 +421,7 @@ rseo_scq_plot = ggplot(data = dt2plot, aes(x = subtype, y = scq_total,  fill = s
          aspect.ratio = a_ratio)
 
 rseo_scq_plot
-ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_scq_total.pdf"))
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_scq_total.pdf"))
 
 
 rseo_assq_plot = ggplot(data = dt2plot, aes(x = subtype, y = assq_total,  fill = subtype)) +
@@ -438,7 +440,12 @@ rseo_assq_plot = ggplot(data = dt2plot, aes(x = subtype, y = assq_total,  fill =
          aspect.ratio = a_ratio)
 
 rseo_assq_plot
-ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_assq_total.pdf"))
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_assq_total.pdf"))
+
+# ggarrange(rseo_age_plot, rseo_fiq_plot, 
+#           rseo_assq_plot, rseo_rbs_plot, rseo_scq_plot, rseo_srs_plot, 
+#           ncol = 2, nrow =1)
+# ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_age+fiq+autism-quest.pdf"))
 ```
 
 ## Resting State Eyes Closed
@@ -688,7 +695,9 @@ output_res[, "td_v_a1_fdr"] = p.adjust(output_res[,"td_v_a1_p"], method = "fdr")
 output_res[, "td_v_a2_fdr"] = p.adjust(output_res[,"td_v_a2_p"], method = "fdr") 
 output_res[, "a1_v_a2_fdr"] = p.adjust(output_res[,"a1_v_a2_p"], method = "fdr") 
 
-write.csv(output_res, file = file.path(resultpath, "11_rsclosed_pheno_analyses.csv"))
+write.csv(output_res, file = file.path(resultpath, "11_adjH_rsclosed_pheno_analyses.csv"))
+
+output_res
 ```
 
 # Plot Resting State Eyes Closed
@@ -697,7 +706,7 @@ write.csv(output_res, file = file.path(resultpath, "11_rsclosed_pheno_analyses.c
 dt2plot = dt4mod_sbt
 
 # set constants
-a_ratio = .7
+a_ratio = 1.2
 plot_title = 18
 x_title = 16
 x_ticks = 12
@@ -710,7 +719,7 @@ rseo_age_plot = ggplot(data = dt2plot, aes(x = subtype, y = age,  fill = subtype
   geom_boxplot(width = 0.15, color = "black", fill = "white") +
   stat_dots(side = "left", dotsize = .2, justification = 1.2, binwidth = .5) +
   theme_bw() + coord_flip() + 
-  labs(y = "age\n", title = "rsopen\n")  +
+  labs(y = "age\n", title = "rsclosed\n")  +
   theme(legend.position = "none",
         title = element_text(size = plot_title),
         axis.title.x = element_text(size = x_title),
@@ -720,7 +729,7 @@ rseo_age_plot = ggplot(data = dt2plot, aes(x = subtype, y = age,  fill = subtype
          aspect.ratio = a_ratio)
 
 rseo_age_plot
-ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_age.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_age.pdf"))
 
 # Plot fiq
 rseo_fiq_plot = ggplot(data = dt2plot, aes(x = subtype, y = fiq,  fill = subtype)) +
@@ -729,7 +738,7 @@ rseo_fiq_plot = ggplot(data = dt2plot, aes(x = subtype, y = fiq,  fill = subtype
   geom_boxplot(width = 0.15, color = "black", fill = "white") +
   stat_dots(side = "left", dotsize = .8, justification = 1.2, binwidth = 1) +
   theme_bw() + coord_flip() + 
-  labs(y = "full scale IQ\n", title = "rsopen\n")  +
+  labs(y = "full scale IQ\n", title = "rsclosed\n")  +
   theme(legend.position = "none",
         title = element_text(size = plot_title),
         axis.title.x = element_text(size = x_title),
@@ -739,7 +748,7 @@ rseo_fiq_plot = ggplot(data = dt2plot, aes(x = subtype, y = fiq,  fill = subtype
          aspect.ratio = a_ratio)
 
 rseo_fiq_plot
-ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_fiq.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_fiq.pdf"))
 
 # Plot srs
 rseo_srs_plot = ggplot(data = dt2plot, aes(x = subtype, y = srs_total_T,  fill = subtype)) +
@@ -748,7 +757,7 @@ rseo_srs_plot = ggplot(data = dt2plot, aes(x = subtype, y = srs_total_T,  fill =
   geom_boxplot(width = 0.15, color = "black", fill = "white") +
   stat_dots(side = "left", dotsize = .5, justification = 1.2, binwidth = 1) +
   theme_bw() + coord_flip() + 
-  labs(y = "SRS-2 total scores\n", title = "rsopen\n")  +
+  labs(y = "SRS-2 total scores\n", title = "rsclosed\n")  +
   theme(legend.position = "none",
         title = element_text(size = plot_title),
         axis.title.x = element_text(size = x_title),
@@ -758,7 +767,7 @@ rseo_srs_plot = ggplot(data = dt2plot, aes(x = subtype, y = srs_total_T,  fill =
          aspect.ratio = a_ratio)
 
 rseo_srs_plot
-ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_srs_total_T.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_srs_total_T.pdf"))
 
 
 rseo_rbs_plot = ggplot(data = dt2plot, aes(x = subtype, y = rbs_total,  fill = subtype)) +
@@ -767,7 +776,7 @@ rseo_rbs_plot = ggplot(data = dt2plot, aes(x = subtype, y = rbs_total,  fill = s
   geom_boxplot(width = 0.15, color = "black", fill = "white") +
   stat_dots(side = "left", dotsize = 5, justification = 1.2, binwidth = .4) +
   theme_bw() + coord_flip() + 
-  labs(y = "RBS-R total scores\n", title = "rsopen\n")  +
+  labs(y = "RBS-R total scores\n", title = "rsclosed\n")  +
   theme(legend.position = "none",
         title = element_text(size = plot_title),
         axis.title.x = element_text(size = x_title),
@@ -777,7 +786,7 @@ rseo_rbs_plot = ggplot(data = dt2plot, aes(x = subtype, y = rbs_total,  fill = s
          aspect.ratio = a_ratio)
 
 rseo_rbs_plot
-ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_rbs_total.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_rbs_total.pdf"))
 
 
 rseo_scq_plot = ggplot(data = dt2plot, aes(x = subtype, y = scq_total,  fill = subtype)) +
@@ -786,7 +795,7 @@ rseo_scq_plot = ggplot(data = dt2plot, aes(x = subtype, y = scq_total,  fill = s
   geom_boxplot(width = 0.15, color = "black", fill = "white") +
   stat_dots(side = "left", dotsize = .6, justification = 1.2, binwidth = .5) +
   theme_bw() + coord_flip() + 
-  labs(y = "SCQ total scores\n", title = "rsopen\n")  +
+  labs(y = "SCQ total scores\n", title = "rsclosed\n")  +
   theme(legend.position = "none",
         title = element_text(size = plot_title),
         axis.title.x = element_text(size = x_title),
@@ -796,7 +805,7 @@ rseo_scq_plot = ggplot(data = dt2plot, aes(x = subtype, y = scq_total,  fill = s
          aspect.ratio = a_ratio)
 
 rseo_scq_plot
-ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_scq_total.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_scq_total.pdf"))
 
 
 rseo_assq_plot = ggplot(data = dt2plot, aes(x = subtype, y = assq_total,  fill = subtype)) +
@@ -805,7 +814,7 @@ rseo_assq_plot = ggplot(data = dt2plot, aes(x = subtype, y = assq_total,  fill =
   geom_boxplot(width = 0.15, color = "black", fill = "white") +
   stat_dots(side = "left", dotsize = .8, justification = 1.2, binwidth = .7) +
   theme_bw() + coord_flip() + 
-  labs(y = "ASSQ total scores\n", title = "rsopen\n")  +
+  labs(y = "ASSQ total scores\n", title = "rsclosed\n")  +
   theme(legend.position = "none",
         title = element_text(size = plot_title),
         axis.title.x = element_text(size = x_title),
@@ -815,7 +824,7 @@ rseo_assq_plot = ggplot(data = dt2plot, aes(x = subtype, y = assq_total,  fill =
          aspect.ratio = a_ratio)
 
 rseo_assq_plot
-ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_assq_total.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_assq_total.pdf"))
 ```
 
 ## Save to csv
@@ -823,7 +832,7 @@ ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_assq_total.pdf"))
 # write.csv(output_res, file = file.path(resultpath, "restingstate_pheno_analyses.csv"))
 
 all_pheno_summaries = rbind(rseo_pheno_tbl, rsec_pheno_tbl)
-write.csv(all_pheno_summaries, file = file.path(resultpath, "restingstate_pheno_summary.csv"))
+write.csv(all_pheno_summaries, file = file.path(resultpath, "11_adjH_restingstate_pheno_summary.csv"))
 
 all_pheno_summaries
 

@@ -23,7 +23,7 @@ tidypath = here("data","tidy")
 plotpath = here("plots", "reval","global")
 resultpath = here("results", "reval","global")
 
-tidy_data = read.csv(file.path(tidypath,"tidy_H_revalsubgroups_global.csv"))
+tidy_data = read.csv(file.path(tidypath,"tidy_adjH_revalsubgroups_global.csv"))
 ```
 
 ### Check group differences
@@ -32,7 +32,10 @@ tidy_data = read.csv(file.path(tidypath,"tidy_H_revalsubgroups_global.csv"))
 rs_data = tidy_data %>% 
   filter(tidy_data$dx1_short != "TD") %>%
   unite(fiq, wais_fiq, wasi_fiq,wisc_fiq, na.rm = TRUE) %>%
-  select(subid, rsopen_subgroup_glob, rsclosed_subgroup_glob, age, fiq, assq_total, scq_total, rbs_total, srs_total_T) %>%
+  select(subid, rsopen_subgroup_glob, rsclosed_subgroup_glob, 
+         study_site,
+         age, fiq, 
+         assq_total, scq_total, rbs_total, srs_total_T) %>%
   distinct()
 
 # make fiq numeric
@@ -74,7 +77,9 @@ rs_data_summ = as.data.frame(rs_data %>%
 )
 
 # save to file
-write.csv(rs_data_summ, file = file.path(resultpath,"02_subtype_consistency_summ_stats.csv"))
+write.csv(rs_data_summ, file = file.path(resultpath,"02_adjH_subtype_consistency_summ_stats.csv"))
+
+rs_data_summ
 ```
 
 ### Set things up to run linear model 
@@ -303,15 +308,16 @@ output_res[,"a1_v_a3_fdr"] = p.adjust(output_res[,"a1_v_a3_p"], method = "fdr")
 output_res[,"a2_v_a3_fdr"] = p.adjust(output_res[,"a2_v_a3_p"], method = "fdr") 
 
 # save to file
-write.csv(output_res, file = file.path(resultpath,"02_subtype_consistency_lm.csv"))
+write.csv(output_res, file = file.path(resultpath,"02_adjH_subtype_consistency_lm.csv"))
 
+output_res
 ```
 
 ### Plot
 ```{r, warning=FALSE, message=FALSE}
 
 rs_data_2plot = tidy_data %>% 
-  filter(dx1_short == "ASD" & task == "RestingState" & sex == "Male" & exclude == "No") %>% 
+  filter(dx1_short == "ASD" & sex == "Male") %>% 
   select(subid, rsopen_subgroup_glob, rsclosed_subgroup_glob) %>%
   distinct()
 
@@ -331,10 +337,11 @@ ggplot(data = rs_data_2plot,
         title = element_text(size = 14),
         axis.title.y = element_blank(),
         axis.text.y = element_blank(), 
-        axis.text.x = element_text(size = 12)) +
+        axis.text.x = element_text(size = 12),
+        aspect.ratio = .9) +
   ggtitle("Subtype consistency across resting state condition")
 
-ggsave(filename = file.path(plotpath,"02_subtype_consistency_alluvialplot.pdf"))
+ggsave(filename = file.path(plotpath,"02_adjH_subtype_consistency_alluvialplot.pdf"))
 
 ```
 

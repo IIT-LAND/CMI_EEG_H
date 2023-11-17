@@ -29,13 +29,13 @@ rsclosed_plotpath = file.path(plotpath, "rsclosed")
 ### Load data
 ```{r, warning=FALSE, message=FALSE}
 # rsopen
-dt_rseo_pc1 = read.csv(file.path(datapath,"tidy_H_rsopen_reconstructedHfromPC1.csv"))
-dt_rseo_pc4 = read.csv(file.path(datapath,"tidy_H_rsopen_reconstructedHfromPC4.csv"))
-dt_rseo_pc1pc4 = read.csv(file.path(datapath,"tidy_H_rsopen_reconstructedHfromPC1&4.csv"))
+dt_rseo_pc1 = read.csv(file.path(datapath,"tidy_adjH_rsopen_reconstructedHfromPC1.csv"))
+dt_rseo_pc4 = read.csv(file.path(datapath,"tidy_adjH_rsopen_reconstructedHfromPC4.csv"))
+dt_rseo_pc1pc4 = read.csv(file.path(datapath,"tidy_adjH_rsopen_reconstructedHfromPC1&4.csv"))
 
 #rsclosed
-dt_rsec_pc1 = read.csv(file.path(datapath,"tidy_H_rsclosed_reconstructedHfromPC1.csv"))
-dt_rsec_pc4 = read.csv(file.path(datapath,"tidy_H_rsclosed_reconstructedHfromPC4.csv"))
+dt_rsec_pc1 = read.csv(file.path(datapath,"tidy_adjH_rsclosed_reconstructedHfromPC1.csv"))
+dt_rsec_pc4 = read.csv(file.path(datapath,"tidy_adjH_rsclosed_reconstructedHfromPC4.csv"))
 ```
 
 ### Get electrode names
@@ -180,7 +180,7 @@ calc_effect_sizes <- function(dt, electrode_array){
 data2use = dt_rseo_pc1 #%>% filter(electrode == 'E2')
 electrodes2use = electrode_names #E2
 rseo_pc1_output = calc_effect_sizes(data2use, electrodes2use)
-write.csv(rseo_pc1_output, file = file.path(resultpath,"09_rsopen_Hrec-PC1_effectsizes.csv"))
+write.csv(rseo_pc1_output, file = file.path(resultpath,"09_adjH_rsopen_Hrec-PC1_effectsizes.csv"))
 ```
 
 ### Get effect sizes for RS open PC4
@@ -188,7 +188,7 @@ write.csv(rseo_pc1_output, file = file.path(resultpath,"09_rsopen_Hrec-PC1_effec
 data2use = dt_rseo_pc4 #%>% filter(electrode == 'E2')
 electrodes2use = electrode_names
 rseo_pc4_output = calc_effect_sizes(data2use, electrodes2use)
-write.csv(rseo_pc4_output, file = file.path(resultpath,"09_rsopen_Hrec-PC4_effectsizes.csv"))
+write.csv(rseo_pc4_output, file = file.path(resultpath,"09_adjH_rsopen_Hrec-PC4_effectsizes.csv"))
 ```
 
 ### Get effect sizes for RS open PC1 & PC4
@@ -196,7 +196,7 @@ write.csv(rseo_pc4_output, file = file.path(resultpath,"09_rsopen_Hrec-PC4_effec
 data2use = dt_rseo_pc1pc4 #%>% filter(electrode == 'E2')
 electrodes2use = electrode_names
 rseo_pc1pc4_output = calc_effect_sizes(data2use, electrodes2use)
-write.csv(rseo_pc1pc4_output, file = file.path(resultpath,"09_rsopen_Hrec-PC1PC4_effectsizes.csv"))
+write.csv(rseo_pc1pc4_output, file = file.path(resultpath,"09_adjH_rsopen_Hrec-PC1PC4_effectsizes.csv"))
 ```
 
 ### Get effect sizes for RS closed PC1
@@ -204,7 +204,7 @@ write.csv(rseo_pc1pc4_output, file = file.path(resultpath,"09_rsopen_Hrec-PC1PC4
 data2use = dt_rsec_pc1 #%>% filter(electrode == 'E2')
 electrodes2use = electrode_names
 rsec_pc1_output = calc_effect_sizes(data2use, electrodes2use)
-write.csv(rsec_pc1_output, file = file.path(resultpath,"09_rsclosed_Hrec-PC1_effectsizes.csv"))
+write.csv(rsec_pc1_output, file = file.path(resultpath,"09_adjH_rsclosed_Hrec-PC1_effectsizes.csv"))
 ```
 
 ### Create df for plotting
@@ -361,7 +361,7 @@ ggplot(data = data2plot, aes(x = block, y = d)) +
     legend.text = element_text(size = ax_txt),
     aspect.ratio = a_ratio)
 
-ggsave(filename = file.path(rsopen_plotpath,"d","09_d_Hrec-PC1_acrossblocks.pdf"))
+ggsave(filename = file.path(rsopen_plotpath,"d","09_adjH_d_Hrec-PC1_acrossblocks.pdf"))
 
 
 # RSEO PC4
@@ -384,7 +384,7 @@ ggplot(data = data2plot, aes(x = block, y = d)) +
     legend.text = element_text(size = ax_txt),
     aspect.ratio = a_ratio)
 
-ggsave(filename = file.path(rsopen_plotpath,"d","09_d_Hrec-PC4_acrossblocks.pdf"))
+ggsave(filename = file.path(rsopen_plotpath,"d","09_adjH_d_Hrec-PC4_acrossblocks.pdf"))
 
 
 # RSEO PC1+PC4
@@ -409,7 +409,7 @@ ggplot(data = data2plot, aes(x = block, y = d)) +
     legend.text = element_text(size = ax_txt),
     aspect.ratio = a_ratio)
 
-ggsave(filename = file.path(rsopen_plotpath,"d","09_d_Hrec-PC1PC4_acrossblocks.pdf"))
+ggsave(filename = file.path(rsopen_plotpath,"d","09_adjH_d_Hrec-PC1PC4_acrossblocks.pdf"))
 
 
 # RSEC PC1
@@ -432,5 +432,5 @@ ggplot(data = data2plot, aes(x = block, y = d)) +
     legend.text = element_text(size = ax_txt),
     aspect.ratio = a_ratio)
 
-ggsave(filename = file.path(rsclosed_plotpath,"d","09_d_Hrec-PC1_acrossblocks.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath,"d","09_adjH_d_Hrec-PC1_acrossblocks.pdf"))
 ```

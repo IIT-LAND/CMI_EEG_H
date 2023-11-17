@@ -44,6 +44,16 @@ df_rs = df %>%
 N_tot = length(unique(df$subid))
 sprintf("Total number of subjects: %s", N_tot) #669
 
+# find total N autism
+df_autism = df %>% filter(dx1_short == "ASD")
+N_tot_autism = length(unique(df_autism$subid))
+sprintf("Total number of autistic subjects: %s", N_tot_autism) #412
+
+# find total N TD
+df_td = df %>% filter(dx1_short == "TD")
+N_tot_td = length(unique(df_td$subid))
+sprintf("Total number of typically developing subjects: %s", N_tot_td) #257
+
 # find N for resting state
 N_tot_rs = length(unique(df_rs$subid))
 sprintf("Total number of subjects with resting state data: %s", N_tot_rs) #654
@@ -51,25 +61,36 @@ sprintf("Total number of subjects with resting state data: %s", N_tot_rs) #654
 # find number of subjects without resting state data
 N_no_rs = N_tot - N_tot_rs
 sprintf("Number of subjects without resting state data: %s", N_no_rs) #15
+
+# select "subid" and "dx1_short" columns
+dt2chk_1 = df_rs %>% 
+  select(subid, dx1_short) %>%
+  distinct()
+
+# count number of occurrences for "Yes" and "No"
+summ_tb_1 = as.data.frame(dt2chk_1 %>% 
+                          group_by(dx1_short) %>%
+                          summarise(N = n())
+)
 ```
 
 ### Check N subjects to exclude
 ```{r, warning = FALSE, message = FALSE}
 # select "subid" and "exclude" columns
-dt2chk = df_rs %>% 
+dt2chk_2 = df_rs %>% 
   select(subid, exclude) %>%
   distinct()
 
 # count number of occurrences for "Yes" and "No"
-summ_tb_1 = as.data.frame(dt2chk %>% 
+summ_tb_2 = as.data.frame(dt2chk_2 %>% 
                           group_by(exclude) %>%
                           summarise(N = n())
 )
 
-N_keep = summ_tb_1[summ_tb_1 == "No", "N"]
+N_keep = summ_tb_2[summ_tb_2 == "No", "N"]
 sprintf("Number of subjects to keep: %s", N_keep) #548
 
-N_excl = summ_tb_1[summ_tb_1 == "Yes", "N"]
+N_excl = summ_tb_2[summ_tb_2 == "Yes", "N"]
 sprintf("Number of subjects to exclude: %s", N_excl) #106
 
 # calculate % subjects discarded after preproc

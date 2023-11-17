@@ -1,0 +1,204 @@
+---
+title: "Prep data for PLS"
+author: "NatashaBertelsen"
+date: "Oct-31-2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse")
+```
+
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+datapath = here("data", "tidy")
+```
+
+
+```{r, warning=FALSE, message=FALSE}
+# load data
+dt = read.csv(file.path(datapath,"tidy_adjH_revalsubgroups_global.csv")) 
+# dt_bu = dt
+
+
+# laod clean pheno file and get sub IDs with all pheno data
+mvl_dt_pheno = read_csv(file.path(datapath, "mvl_tidy_pheno_4pls.csv"))
+
+# subset dt by sub IDs
+sub2use = unique(mvl_dt_pheno$subid)
+
+# create wide dt
+dt_wide = dt %>% 
+  filter(subid %in% sub2use) %>%
+  select(subid, dx1_short, age,
+         rsopen_subgroup_glob, rsclosed_subgroup_glob,
+         wais_fiq, wisc_fiq, wasi_fiq,
+         assq_total, scq_total, srs_socialawareness_T,
+         srs_socialcognition_T, srs_socialcommunication_T, 
+         srs_socialmotivation_T, srs_rrb_T,
+         condition, block, electrode, H) %>%
+  unite(fiq, wais_fiq, wisc_fiq, wasi_fiq, na.rm = TRUE) %>%
+  pivot_wider(names_from = 'electrode', values_from = 'H')
+dt_wide$fiq = as.numeric(dt_wide$fiq)
+
+# RS EYES OPEN
+dt_rseo = dt_wide %>% 
+  filter(condition == "open") %>%
+  unite(subtype, dx1_short,rsopen_subgroup_glob, na.rm = TRUE) %>%
+  select(-c(rsclosed_subgroup_glob))
+level_order <- c('TD', 'ASD_1', 'ASD_2') 
+dt_rseo$subtype = factor(dt_rseo$subtype, levels = level_order,
+                         labels = c("td", "autism1", "autism2"))
+
+# sort: td-autism1-autism2
+dt_rseo = dt_rseo[order(dt_rseo$subtype, decreasing = FALSE), ]
+
+# create H df
+dt_rseo_H = dt_rseo %>%
+  select(-c(age, fiq, assq_total, scq_total, srs_socialawareness_T,
+         srs_socialcognition_T, srs_socialcommunication_T, 
+         srs_socialmotivation_T, srs_rrb_T))
+# create pheno df
+dt_rseo_pheno = dt_rseo %>%
+  select(subid, subtype, age, fiq, 
+         assq_total, scq_total, srs_socialawareness_T,
+         srs_socialcognition_T, srs_socialcommunication_T, 
+         srs_socialmotivation_T, srs_rrb_T) %>%
+  distinct()
+
+write_csv(dt_rseo_pheno, file.path(datapath, "tidy_rsopen_pheno_4pls.csv"))
+
+
+# RS EYES CLOSED
+dt_rsec = dt_wide %>% 
+  filter(condition == "closed") %>%
+  unite(subtype, dx1_short, rsclosed_subgroup_glob, na.rm = TRUE) %>%
+  select(-c(rsopen_subgroup_glob))
+level_order <- c('TD', 'ASD_1', 'ASD_2') 
+dt_rsec$subtype = factor(dt_rsec$subtype, levels = level_order,
+                         labels = c("td", "autism1", "autism2"))
+# sort: td-autism1-autism2
+dt_rsec = dt_rsec[order(dt_rsec$subtype, decreasing = FALSE), ] 
+
+# create H df
+dt_rsec_H = dt_rsec %>%
+  select(-c(age, fiq, assq_total, scq_total, srs_socialawareness_T,
+         srs_socialcognition_T, srs_socialcommunication_T, 
+         srs_socialmotivation_T, srs_rrb_T))
+
+# create pheno df
+dt_rsec_pheno = dt_rsec %>%
+  select(subid, subtype, age, fiq, 
+         assq_total, scq_total, srs_socialawareness_T,
+         srs_socialcognition_T, srs_socialcommunication_T, 
+         srs_socialmotivation_T, srs_rrb_T) %>%
+  distinct()
+
+write_csv(dt_rsec_pheno, file.path(datapath, "tidy_rsclosed_pheno_4pls.csv"))
+```
+
+```{r, warning=FALSE, message=FALSE}
+prep4pls <-function(df_H, df_pheno, eye_condition, this_block){
+  
+  # filter by block
+  data_block = df_H %>% filter(block == this_block)
+  
+  # match rows to pheno
+  data_block = data_block[match(df_pheno$subid, data_block$subid),]
+  cat(sprintf('Df for %s b%s matching sub IDs: %s%%', eye_condition, this_block,
+                sum(data_block$subid == df_pheno$subid)/length(df_pheno$subid)*100))
+  cat('\n\n')
+  
+  # deselect columns not of interest 
+  data_block_2save = data_block %>% 
+    select(-c('subtype', 'condition', 'block'))
+  
+  # save data_block_2save
+  fn2save = sprintf("wide_%s_adjH_b%s.csv", eye_condition, this_block)
+  write.csv(data_block_2save, file = file.path(datapath, fn2save))
+  
+  # filter by subtypes:
+  # TD
+  sbt = 'td'
+  data_td = data_block %>%
+    filter(subtype == sbt) %>% 
+    select(-c('subtype', 'condition', 'block'))
+  sz = dim(data_td)
+  cat(sprintf('   -> Subsetted %s block%s %s dataframe has %s rows and %s columns',  
+                eye_condition, this_block, sbt, sz[1], sz[2]), sep = '\n')
+  # save data td
+  fn2save = sprintf("wide_%s_adjH_b%s_%s.csv", eye_condition, this_block, sbt)
+  write.csv(data_td, file = file.path(datapath, fn2save), row.names = FALSE)
+  
+  # A1
+  sbt = 'autism1'
+  data_a1 = data_block %>%
+    filter(subtype == sbt) %>% 
+    select(-c('subtype', 'condition', 'block'))
+  sz = dim(data_a1)
+  cat(sprintf('   -> Subsetted %s block%s %s dataframe has %s rows and %s columns',  
+                eye_condition, this_block, sbt, sz[1], sz[2]), sep = '\n')
+  # save data_a1
+  fn2save = sprintf("wide_%s_adjH_b%s_%s.csv", eye_condition, this_block, sbt)
+  write.csv(data_a1, file = file.path(datapath, fn2save), row.names = FALSE)
+  
+  # A2
+  sbt = 'autism2'
+  data_a2 = data_block %>%
+    filter(subtype == sbt) %>% 
+    select(-c('subtype', 'condition', 'block'))
+  sz = dim(data_a2)
+  cat(sprintf('   -> Subsetted %s block%s %s dataframe has %s rows and %s columns',  
+                eye_condition, this_block, sbt, sz[1], sz[2]), sep = '\n')
+  cat('\n\n')
+  # save data_a2
+  fn2save = sprintf("wide_%s_adjH_b%s_%s.csv", eye_condition, this_block, sbt)
+  write.csv(data_a2, file = file.path(datapath, fn2save), row.names = FALSE)
+  
+  #return(out_mess)
+}
+
+```
+
+# EYES OPEN
+
+```{r, warning=FALSE, message=FALSE}
+
+# RSEO b1
+prep4pls(dt_rseo_H, dt_rseo_pheno, 'rsopen', 1)
+
+# RSEO b2
+prep4pls(dt_rseo_H, dt_rseo_pheno, 'rsopen', 2)
+
+# RSEO b3
+prep4pls(dt_rseo_H, dt_rseo_pheno, 'rsopen', 3)
+
+# RSEO b4
+prep4pls(dt_rseo_H, dt_rseo_pheno, 'rsopen', 4)
+
+# RSEO b5
+prep4pls(dt_rseo_H, dt_rseo_pheno, 'rsopen', 5)
+
+# RSEC b1
+prep4pls(dt_rsec_H, dt_rsec_pheno, 'rsclosed', 1)
+
+# RSEC b2
+prep4pls(dt_rsec_H, dt_rsec_pheno, 'rsclosed', 2)
+
+# RSEC b3
+prep4pls(dt_rsec_H, dt_rsec_pheno, 'rsclosed', 3)
+
+# RSEC b4
+prep4pls(dt_rsec_H, dt_rsec_pheno, 'rsclosed', 4)
+
+# RSEC b5
+prep4pls(dt_rsec_H, dt_rsec_pheno, 'rsclosed', 5)
+
+```
+
+

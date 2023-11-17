@@ -28,11 +28,11 @@ rsclosed_plotpath = file.path(plotpath, "rsclosed")
 ### Load data
 ```{r, warning=FALSE, message=FALSE}
 # load
-rseo_results = read.csv(file.path(resultpath,"04_rsopen_electrodes_subtype*age.csv"))
-rsec_results = read.csv(file.path(resultpath,"04_rsclosed_electrodes_subtype*age.csv"))
+rseo_results = read.csv(file.path(resultpath,"04_adjH_rsopen_electrodes_subtype*age.csv"))
+rsec_results = read.csv(file.path(resultpath,"04_adjH_rsclosed_electrodes_subtype*age.csv"))
 
-rseo_pca_results = read.csv(file.path(resultpath,"07_rsopen_PCA_subtype*age.csv"))
-rsec_pca_results = read.csv(file.path(resultpath,"07_rsclosed_PCA_subtype*age.csv"))
+rseo_pca_results = read.csv(file.path(resultpath,"07_adjH_rsopen_PCA_subtype*age.csv"))
+rsec_pca_results = read.csv(file.path(resultpath,"07_adjH_rsclosed_PCA_subtype*age.csv"))
 ```
 
 ### Create dataframes
@@ -179,12 +179,12 @@ p = ggplot(data = df_rsopen, aes(x = block, y = d)) +
   theme_bw() + 
   theme(plot.title = element_text(size = 18),
     plot.subtitle = element_text(size = 18),
-    axis.title.x = element_text(size = 18),  axis.text.x = element_text(size = 15), 
-    axis.title.y = element_text(size = 18), axis.text.y = element_text(size = 15),
-    legend.title = element_blank(), legend.text = element_text(size = 15),
+    axis.title.x = element_text(size = 18),  axis.text.x = element_text(size = 17), 
+    axis.title.y = element_text(size = 18), axis.text.y = element_text(size = 17),
+    legend.title = element_blank(), legend.text = element_text(size = 17),
     aspect.ratio = .7)
 p
-ggsave(filename = file.path(rsopen_plotpath,"d","08_d_all-electrodes_acrossblocks.pdf"))
+ggsave(filename = file.path(rsopen_plotpath,"d","08_adjH_d_all-electrodes_acrossblocks.pdf"))
 
 
 ## Plot effect size differences
@@ -201,21 +201,21 @@ p = ggplot(data = df_rsclosed, aes(x = block, y = d)) +
   theme_bw() + 
   theme(plot.title = element_text(size = 18),
     plot.subtitle = element_text(size = 18),
-    axis.title.x = element_text(size = 18),  axis.text.x = element_text(size = 15), 
-    axis.title.y = element_text(size = 18), axis.text.y = element_text(size = 15),
-    legend.title = element_blank(), legend.text = element_text(size = 15),
+    axis.title.x = element_text(size = 18),  axis.text.x = element_text(size = 17), 
+    axis.title.y = element_text(size = 18), axis.text.y = element_text(size = 17),
+    legend.title = element_blank(), legend.text = element_text(size = 17),
     aspect.ratio = .7)
 
 p
-ggsave(filename = file.path(rsclosed_plotpath,"d","08_d_all-electrodes_acrossblocks.pdf"))
+ggsave(filename = file.path(rsclosed_plotpath,"d","08_adjH_d_all-electrodes_acrossblocks.pdf"))
 
 ```
 ### Plot effect sizes for PCs of interest
 ```{r, warning=FALSE, message=FALSE}
 ## Plot effect size differences
 # constants
-ax_title = 18
-ax_txt = 15
+ax_title = 20
+ax_txt = 20
 a_ratio = .6
 
 # plot eyes open
@@ -240,7 +240,7 @@ p = ggplot(data = df_pca_rsopen %>% subset(pc == pcoi), aes(x = block, y = d)) +
     aspect.ratio = a_ratio)
 
 p
-ggsave(filename = file.path(rsopen_plotpath,"d", sprintf("08_d_%s_acrossblocks.pdf", pcoi)))
+ggsave(filename = file.path(rsopen_plotpath,"d", sprintf("08_adjH_d_%s_acrossblocks.pdf", pcoi)))
 
 # pc4
 pcoi = "PC4"
@@ -262,7 +262,7 @@ p = ggplot(data = df_pca_rsopen %>% subset(pc == pcoi), aes(x = block, y = d)) +
     legend.text = element_text(size = ax_txt),
     aspect.ratio = a_ratio)
 p
-ggsave(filename = file.path(rsopen_plotpath,"d", sprintf("08_d_%s_acrossblocks.pdf", pcoi)))
+ggsave(filename = file.path(rsopen_plotpath,"d", sprintf("08_adjH_d_%s_acrossblocks.pdf", pcoi)))
 
 
 # Plot eyes closed
@@ -287,29 +287,7 @@ p = ggplot(data = df_pca_rsclosed %>% subset(pc == pcoi), aes(x = block, y = d))
     aspect.ratio = a_ratio)
 
 p
-ggsave(filename = file.path(rsclosed_plotpath,"d", sprintf("08_d_%s_acrossblocks.pdf", pcoi)))
+ggsave(filename = file.path(rsclosed_plotpath,"d", sprintf("08_adjH_d_%s_acrossblocks.pdf", pcoi)))
 
-# pc3
-pcoi = "PC3"
-p = ggplot(data = df_pca_rsclosed %>% subset(pc == pcoi), aes(x = block, y = d)) +
-  geom_line(aes(group = comparison), alpha = .8, linewidth = .8) +
-  geom_point(alpha = 1, size = 9, colour = "black") +
-  geom_point(aes(col = comparison), alpha = 1, size = 8) +
-  labs(x = "\nblock", y = "d\n", title = 'Eyes closed', subtitle = sprintf('Cohen\'s d for %s', pcoi))  +
-  scale_y_continuous(limits = c(-.5, .0), 
-                     breaks = c(-.5, -.4, -.3, -.2, -.1, 0),
-                     labels = c(-.5, -.4, -.3, -.2, -.1, 0)) +
-  scale_colour_manual(values = mycolorpalette) +
-  theme_bw() + 
-  theme(plot.title = element_text(size = ax_title ),
-        plot.subtitle = element_text(size = ax_title),
-    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
-    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
-    legend.title = element_blank(),
-    legend.text = element_text(size = ax_txt),
-    aspect.ratio = a_ratio)
-  
-p
-ggsave(filename = file.path(rsclosed_plotpath,"d", sprintf("08_d_%s_acrossblocks.pdf", pcoi)))
 
 ```
