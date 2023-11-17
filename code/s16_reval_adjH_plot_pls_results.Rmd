@@ -126,7 +126,7 @@ rsc_wide = rsc %>% pivot_wider(names_from = block, values_from = BSR)
 # rsopen
 corrmat = cor(rso_wide[,2:ncol(rso_wide)])
 
-pdf(file = file.path(plotdir_rsopen,"pls", "rsopen_ALL_BSR_LV1_corr.pdf"), width = 7, height = 5)
+pdf(file = file.path(plotdir_rsopen,"pls", "16_rsopen_ALL_BSR_LV1_corr.pdf"), width = 7, height = 5)
 
 WGCNA::labeledHeatmap(Matrix = corrmat,
                       xLabels = rownames(corrmat),
@@ -145,7 +145,7 @@ dev.off()
 # rsclosed
 corrmat = cor(rsc_wide[,2:ncol(rsc_wide)])
 
-pdf(file = file.path(plotdir_rsclosed,"pls", "rsclosed_ALL_BSR_LV1_corr.pdf"), width = 7, height = 5)
+pdf(file = file.path(plotdir_rsclosed,"pls", "16_rsclosed_ALL_BSR_LV1_corr.pdf"), width = 7, height = 5)
 
 WGCNA::labeledHeatmap(Matrix = corrmat,
                       xLabels = rownames(corrmat),
@@ -210,14 +210,14 @@ p = ggplot(data = data4heatmap) +
     plot.title = element_text(hjust = 0.5, size=fontSize),
     aspect.ratio = 2) 
 
-ggsave(filename = file.path(plotdir_rsopen,"pls", "rsopen_LV1.pdf"), width=5, height=5)
+ggsave(filename = file.path(plotdir_rsopen,"pls", "16_rsopen_LV1.pdf"), width=5, height=5)
 p
 
 corr_res = corrmat2plot(df2use = rso, group_names = c("TD","Autism 1","Autism 2"))
 corr_res$p_res
 plot_pairwise_grp_similarity(corr_res, plot2use = "CorrMat")
 # plot_pairwise_grp_similarity(corr_res, plot2use = "Scatter")
-ggsave(filename = file.path(plotdir_rsopen,"pls", "rsopen_LV1_corr.pdf"), width=5, height=3.5)
+ggsave(filename = file.path(plotdir_rsopen,"pls", "16_rsopen_LV1_corr.pdf"), width=5, height=3.5)
 dev.off()
 ```
 
@@ -268,10 +268,10 @@ p = ggplot(data = data4heatmap) +
     plot.title = element_text(hjust = 0.5, size=fontSize),
     aspect.ratio = 2) 
 
-ggsave(filename = file.path(plotdir_rsclosed,"pls", "rsclosed_LV1.pdf"), width=5,height=5)
+ggsave(filename = file.path(plotdir_rsclosed,"pls", "16_rsclosed_LV1.pdf"), width=5,height=5)
 p
 
-pdf(file = file.path(plotdir_rsclosed,"pls", "rsclosed_LV1_corr.pdf"), width = 5, height = 3.5)
+pdf(file = file.path(plotdir_rsclosed,"pls", "16_rsclosed_LV1_corr.pdf"), width = 5, height = 3.5)
 corr_res = corrmat2plot(df2use = rsc, group_names = c("TD","Autism 1","Autism 2"))
 corr_res$p_res
 plot_pairwise_grp_similarity(corr_res, plot2use = "CorrMat")
