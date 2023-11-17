@@ -1,4 +1,4 @@
-# CMI_EEG_H  
+## Electrophysiologically-defined excitation-inhibition autism neurosubtypes 
 
 #### All code for Bertelsen et al., 2023, medRXiv  
 ---
