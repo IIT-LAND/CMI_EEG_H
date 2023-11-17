@@ -156,16 +156,9 @@ plots (same for rsclosed):
 - plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s_age_blockscollapsed.pdf
 ---
 
-
-
-
-
-### 07 plot effect size differences by subtype and across the five blocks for electrodes (all 93) and PCs (1, 2 and 3)
-
+### 08 plot effect size differences by subtype and across the five blocks for electrodes (all 93) and PCs (1, 2 and 3)
 code:
-- cmi_04_H_reval_G30nC2_asd_males_effectsize_comparison_plots.Rmd
-- cmi_04_H_reval_G30nC2_asd_males_effectsize_comparison_plots.html
-
+- s08_reval_adjH_effectsizes_plots.Rmd
 
 data to input:
 - rsopen_electrodes_subtype*age_06.Mar.2023.csv
@@ -173,14 +166,111 @@ data to input:
 - rsopen_PCA_subtype*age_24.Apr.2023.csv
 - rsclosed_PCA_subtype*age_24.Apr.2023.csv
 
-
 plots:
 - plots/reval/global/rsopen/d/H_rsopen_d_byelectrode_acrossblocks_2col.pdf
 - plots/reval/global/rsclosed/d/H_rsclosed_d_byelectrode_acrossblocks_2col.pdf
 - plots/reval/global/rsopen/d/pca_pc1_rsopen_d_acrossblocks_2col.pdf
 - plots/reval/global/rsclosed/d/pca_pc1_rsclosed_d_acrossblocks_2col.pdf.pdf
+---
+
+### 09 calculate and plot effect sizes for rec H data (PC1+PC4)
+code: s09_reval_adjH_effectsizes_recH.Rmd
+
+data to input:
+
+results:
+
+plots (same for rsclosed):
+---
+
+### 10
+code: s10_reval_adjH_effectsizes_topoplots.mlx
+
+data to input:
+- 04_adjH_rsopen_electrodes_subtype*age.csv
+- 04_adjH_rsopen_electrodes_subtype*age.csv
+- 09_adjH_rsopen_Hrec-PC1PC4_effectsizes.csv
+
+results:
+
+plots (same for rsclosed):
+- 10_adjH_topoplot_mean_d_electH_tdva1.jpg
+- 10_adjH_topoplot_mean_d_electH_tdva2.jpg
+- 10_adjH_topoplot_mean_d_PC1&4recH_tdva1.jpg
+- 10_adjH_topoplot_mean_d_PC1&4recH_tdva2.jpg
+---
+
+### 11
+code: s11_reval_adjH_pheno_analysis.Rmd
+
+data to input:
+
+results:
+
+plots (same for rsclosed):
+---
+
+### 12
+code: s12_reval_adjH_prepdata4PLS.Rmd
+
+data to input:
+
+results:
+
+plots (same for rsclosed):
 
 ---
+
+### 13, 14 & 15 run PLS
+code: s13_reval_adjH_runPLS.m
+code: s14_reval_adjH_compute_bootstrap_ci_pls.m
+code s15_reval_adjH_compute_behav_correlation.m
+
+data to input:
+
+results:
+
+plots (same for rsclosed):
+
+---
+
+### 16
+code: s16_reval_adjH_plot_pls_results.Rmd
+
+data to input:
+
+results:
+
+plots (same for rsclosed):
+
+---
+
+### 17
+code: s17_reval_adjH_pls_topoplots.mlx
+
+data to input:
+
+results:
+
+plots (same for rsclosed):
+
+---
+
+### 18
+code: s18_reval_adjH_plot_corr.Rmd
+
+data to input:
+
+results:
+
+plots (same for rsclosed):
+
+
+
+
+
+
+
 
 ### plot electrode effects sizes in the topoplots
 
