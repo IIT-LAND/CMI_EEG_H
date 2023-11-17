@@ -64,7 +64,7 @@ code:
 - s03_reval_adjH_sigClust_subtypes_validation.Rmd
 
 data to input:
-- tidy_H_revalsubgroups_rsopne_umap+cl.csv
+- tidy_H_revalsubgroups_rsopen_umap+cl.csv
 - tidy_H_revalsubgroups_rsclosed_umap+cl.csv
 
 result files:
@@ -174,17 +174,22 @@ plots:
 ---
 
 ### 09 calculate and plot effect sizes for rec H data (PC1+PC4)
-code: s09_reval_adjH_effectsizes_recH.Rmd
+code: 
+- s09_reval_adjH_effectsizes_recH.Rmd
 
-data to input:
+data to input: 
+- tidy_adjH_rsopen_reconstructedHfromPC1&4.csv
 
 results:
+- 09_adjH_rsopen_Hrec-PC1PC4_effectsizes.csv
 
-plots (same for rsclosed):
+plots:
+- plots/reval/global/rsopen/d/09_adjH_d_Hrec-PC1PC4_acrossblocks.pdf
 ---
 
-### 10
-code: s10_reval_adjH_effectsizes_topoplots.mlx
+### 10 topoplots for effects sizes (H + recH data)
+code: 
+- s10_reval_adjH_effectsizes_topoplots.mlx
 
 data to input:
 - 04_adjH_rsopen_electrodes_subtype*age.csv
@@ -200,139 +205,117 @@ plots (same for rsclosed):
 - 10_adjH_topoplot_mean_d_PC1&4recH_tdva2.jpg
 ---
 
-### 11
-code: s11_reval_adjH_pheno_analysis.Rmd
+### 11 Pheno analyses
+code: 
+- s11_reval_adjH_pheno_analysis.Rmd
 
-data to input:
+data to input: 
+- tidy_adjH_revalsubgroups_global.csv
 
 results:
+- 11_adjH_rsopen_pheno_analyses.csv
+- 11_adjH_rsclosed_pheno_analyses.csv
+- 11_adjH_restingstate_pheno_summary.csv
 
 plots (same for rsclosed):
+- 11_adjH_age.pdf
+- 11_adjH_fiq.pdf
+- 11_adjH_assq_total.pdf
+- 11_adjH_rbs_total.pdf
+- 11_adjH_scq_total.pdf
+- 11_adjH_srs_total_T.pdf
 ---
 
-### 12
+### 12 prepare dataframes for PLS
 code: s12_reval_adjH_prepdata4PLS.Rmd
 
 data to input:
+- tidy_adjH_revalsubgroups_global.csv
+- mvl_tidy_pheno_4pls.csv
 
-results:
-
-plots (same for rsclosed):
-
+results (same for rsclosed):
+- tidy_rsopen_pheno_4pls.csv
+- wide_rsopen_adjH_b1.csv
+- wide_rsopen_adjH_b1_td.csv
+- wide_rsopen_adjH_b2_td.csv
+- wide_rsopen_adjH_b3_td.csv
+- wide_rsopen_adjH_b4_td.csv
+- wide_rsopen_adjH_b5_td.csv
+- wide_rsopen_adjH_b1_a1.csv
+- wide_rsopen_adjH_b2_a1.csv
+- wide_rsopen_adjH_b3_a1.csv
+- wide_rsopen_adjH_b4_a1.csv
+- wide_rsopen_adjH_b5_a1.csv
+- wide_rsopen_adjH_b1_a2.csv
+- wide_rsopen_adjH_b2_a2.csv
+- wide_rsopen_adjH_b3_a2.csv
+- wide_rsopen_adjH_b4_a2.csv
+- wide_rsopen_adjH_b5_a2.csv
 ---
 
-### 13, 14 & 15 run PLS
-code: s13_reval_adjH_runPLS.m
-code: s14_reval_adjH_compute_bootstrap_ci_pls.m
-code s15_reval_adjH_compute_behav_correlation.m
+### 13, 14 run PLS
+code: 
+- s13_reval_adjH_runPLS.m
+- s14_reval_adjH_compute_bootstrap_ci_pls.m
 
-data to input:
+data to input (same for rsclosed):
+- tidy_rsopen_pheno_4pls.csv
+- wide_rsopen_adjH_b1.csv
+- wide_rsopen_adjH_b1_td.csv
+- wide_rsopen_adjH_b2_td.csv
+- wide_rsopen_adjH_b3_td.csv
+- wide_rsopen_adjH_b4_td.csv
+- wide_rsopen_adjH_b5_td.csv
+- wide_rsopen_adjH_b1_a1.csv
+- wide_rsopen_adjH_b2_a1.csv
+- wide_rsopen_adjH_b3_a1.csv
+- wide_rsopen_adjH_b4_a1.csv
+- wide_rsopen_adjH_b5_a1.csv
+- wide_rsopen_adjH_b1_a2.csv
+- wide_rsopen_adjH_b2_a2.csv
+- wide_rsopen_adjH_b3_a2.csv
+- wide_rsopen_adjH_b4_a2.csv
+- wide_rsopen_adjH_b5_a2.csv
 
 results:
-
-plots (same for rsclosed):
-
+- 13_pls_rsopen_ALL_BSR_LV1.csv
+- 13_pls_rsopen_ALL_BSRrev_LV1.csv
+- 13_pls_rsopen_ALL.mat
+- 13_pls_rsclosed_ALL_BSR_LV1.csv
+- 13_pls_rsclosed_ALL_BSRrev_LV1.csv
+- 13_pls_rsclosed_ALL.mat
+- 14_rsopen_ALL_bootlim_data4plotting_LV1_ci95.csv
+- 14_rsopen_ALLrev_bootlim_data4plotting_LV1_ci95.csv
+- 14_rsclosed_ALL_bootlim_data4plotting_LV1_ci95.csv
+- 14_rsclosed_ALLrev_bootlim_data4plotting_LV1_ci95.csv
 ---
 
 ### 16
 code: s16_reval_adjH_plot_pls_results.Rmd
 
 data to input:
-
-results:
+- 13_pls_rsopen_ALL_BSRrev_LV1.csv
+- 13_pls_rsclosed_ALL_BSR_LV1.csv
+- 14_rsopen_ALLrev_bootlim_data4plotting_LV1_ci95.csv
 
 plots (same for rsclosed):
-
+- 16_rsopen_ALL_BSR_LV1_corr.pdf
+- 16_rsclosed_ALL_BSR_LV1_corr.pdf
+- 16_rsopen_LV1_corr.pdf
+- 16_rsclosed_LV1_corr.pdf
+- 16_rsopen_LV1_corr.pdf
+- 16_rsclosed_LV1_corr.pdf
 ---
 
 ### 17
-code: s17_reval_adjH_pls_topoplots.mlx
+code: 
+- s17_reval_adjH_pls_topoplots.mlx
 
 data to input:
-
-results:
+- 13_pls_rsopen_ALL_BSRrev_LV1.csv
+- 13_pls_rsclosed_ALL_BSR_LV1.csv
 
 plots (same for rsclosed):
-
----
-
-### 18
-code: s18_reval_adjH_plot_corr.Rmd
-
-data to input:
-
-results:
-
-plots (same for rsclosed):
-
-
-
-
-
-
-
-
-### plot electrode effects sizes in the topoplots
-
-code:
-- cmi_04_H_reval_G30nC2_asd_males_topoplots_effectsizes_16032023.mlx
-
-data to input:
-- rsopen_electrodes_subtype*age_06.Mar.2023.csv
-- rsclosed_electrodes_subtype*age_06.Mar.2023.csv
-
-plots:
-- plots/reval/global/rsopen/topoplots/topoplot_tdva1_mean_d_2col.jpg
-- plots/reval/global/rsopen/topoplots/topoplot_tdva2_mean_d_2col.jpg
-- plots/reval/global/rsclosed/topoplots/topoplot_tdva1_mean_d_2col.jpg
-- plots/reval/global/rsclosed/topoplots/topoplot_tdva2_mean_d_2col.jpg
-
-
----
-
-### 07 run linear model at the PCA level
-
-code:
-- s07_reval_adjH_PCA_subtypes_analysis.Rmd
-
-data to input:
-- tidy_adjH_rsopen_PCA.csv
-- tidy_adjH_rsclosed_PCA.csv
-
-result files:
-- 07_adjH_rsopen_PCA_subtype*age.csv
-- 07_adjH_rsclosed_PCA_subtype*age.csv
----
-
-### check for pheno differences between the subtypes
-
-code:
-- cmi_06_H_reval_asd_males_phenoAnalyses_31.01.2023.Rmd
-- cmi_06_H_reval_asd_males_phenoAnalyses_31.01.2023.Rmd
-
-data to input:
-- tidy_H_reval_asd_males_revalsubgroups_global_01.02.2023.csv
-
-result files:
-- restingstate_pheno_summary.csv
-- restingstate_pheno_analyses.csv
-
-some plots (age, fiq, srs, rbs, scq, assq):
-- plots/reval/global/rsopen/pheno/age.pdf
-
-  
----
-
-### extended pheno plotting
-
-code:
-- cmi_06_H_reval_G30nC2_asd_males_phenoAnalyses_Extended_25.02.2023.Rmd
-- cmi_06_H_reval_G30nC2_asd_males_phenoAnalyses_Extended_25.02.2023.html
-
-data to input:
-- tidy_H_reval_asd_males_revalsubgroups_global_01.02.2023.csv
-
-plots:
-- plots/reval/global/rsopen/pheno_extended/c3sr_ab_T.jpg
-
+- 17_adjH_topoplot_PLS_BSR.jpg
+- 17_adjH_corr_matrix_byblock_BSR.jpg
 ---
