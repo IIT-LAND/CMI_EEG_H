@@ -21,7 +21,7 @@ plots:
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/pls
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/sigclust
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/topoplots
-
+'
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/adjH
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/d
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/pheno
@@ -32,19 +32,19 @@ plots:
 ---  
 
 ## Pipeline for the analyses:
-/n
+
 ### 01 run reval to identify subtypes
 code:
 - s01_reval_adjH.ipynb
-/n
+
 data to input:
 - tidy_cov_adjusted_H.csv 
-/n
+
 result files (outputted to data/tidy directory):
 - tidy_adjH_revalsubgroups_global.csv (main)
 - tidy_adjH_revalsubgroups_rsopen_umap+cl.csv.csv (umap resting state eyes open)
 - tidy_adjH_revalsubgroups_rsclosed_umap+cl.csv.csv (umap resting state eyes closed)
-/n
+
 * note: if you have a single file with H+pheno data you'll have to adjust this script
 ---
 
