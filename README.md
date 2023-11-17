@@ -1,17 +1,18 @@
-# CMI_EEG_H
-All code for Bertelsen et al., 2023, medRXiv
+# CMI_EEG_H  
+
+#### All code for Bertelsen et al., 2023, medRXiv  
 ---
-/n
+
 ## Directories to set up:
 data: 
-- pwd: ~/[root]/cmi_eeg_rs_H/data/tidy
-/n
+- pwd: ~/[root]/cmi_eeg_rs_H/data/tidy  
+
 code 
 - pwd: ~/[root]/cmi_eeg_rs_H/code
-/n
+ 
 results:
-- pwd: ~/[root]/cmi_eeg_rs_H/results/reval/global
-/n
+- pwd: ~/[root]/cmi_eeg_rs_H/results/reval/global  
+
 plots: 
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/adjH
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/d
@@ -20,7 +21,7 @@ plots:
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/pls
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/sigclust
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsopen/topoplots
-/n
+
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/adjH
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/d
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/pheno
@@ -28,8 +29,8 @@ plots:
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/pls
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/sigclust
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/topoplots
----
-/n
+---  
+
 ## Pipeline for the analyses:
 /n
 ### 01 run reval to identify subtypes
@@ -87,7 +88,6 @@ result files:
 
 
 plots (same for rsclosed):
-H values plots:
 - plots/reval/global/rsopen/adjH/04_adjH_byblock_%s.pdf
 - plots/reval/global/rsopen/adjH/04_adjH_blockscollapsed_%s.pdf
 - plots/reval/global/rsopen/adjH/04_adjH_age_%s.pdf
@@ -114,30 +114,53 @@ plots (same for rsclosed):
 - plots/reval/global/rsclosed/topoplots/05_adjH_topoplot_lme_age_pval_fdr.jpg
 ---
 
-### 06 run PCA 
+### 06 run PCA and reconstruct H data from PC4
 code:
 - s06_reval_adjH_runPCA.mlx
 
 data to input:
-- tidy_H_reval_asd_males_revalsubgroups_global_01.02.2023.csv
-
+- tidy_adjH_revalsubgroups_global.csv
 
 result files:
-- data/tidy/tidy_H_reval_asd_males_PCA_rsopen_02.Feb.2023.csv
-- data/tidytidy_H_reval_asd_males_PCA_rsclosed_02.Feb.2023.csv
-- results/reval/global/rsopen_PCA_variance_explained.xlsx
-- results/reval/global/rsclosed_PCA_variance_explained.xlsx
+- data/tidy/tidy_adjH_rsopen_PCA.csv
+- data/tidy/tidy_adjH_rsclosed_PCA.csv
+- data/tidy/tidy_adjH_rsopen_reconstructedHfromPC4.csv
 
-plots (scree plots, loadings over pc, scores by electrode topoplots):
-- plots/reval/global/rsopen/topoplots/rsopen_H_PCA_pct_variance_explained.jpg
-- plots/reval/global/rsopen/topoplots/rsopen_H_PCA_loadings_over_pc.jpg
-- plots/reval/global/rsopen/topoplots/rsopen_H_PCA_topoplots.jpg
-- plots/reval/global/rsopen/topoplots/topoplot_H_PC1.jpg
-- etc
-
+plots (same for rsclosed):
+- plots/reval/global/rsopen/pca/06_adjH_PCA_pct_variance_explained.jpg
+- plots/reval/global/rsopen/pca/06_adjH_PCA_cum_pct_variance_explained.jpg
+- plots/reval/global/rsopen/pca/06_adjH_PCA_loadings_over_PCs.jpg
+- plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PCs1-8.jpg
+- plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PC1.jpg
+- plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PC2.jpg
+- plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PC3.jpg
+- plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PC4.jpg
 ---
 
-### plot effect size differences by subtype and across the five blocks for electrodes (all 93) and PCs (1, 2 and 3)
+### 07 run linear model at the PCA level
+code:
+- s07_reval_adjH_PCA_subtypes_analysis.Rmd
+
+data to input:
+- tidy_adjH_rsopen_PCA.csv
+- tidy_adjH_rsclosed_PCA.csv
+
+result files:
+- 07_adjH_rsopen_PCA_subtype*age.csv
+- 07_adjH_rsclosed_PCA_subtype*age.csv
+
+plots (same for rsclosed):
+- plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s.pdf
+- plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s_blockscollapsed.pdf
+- plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s_age_groupscollapsed.pdf
+- plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s_age_blockscollapsed.pdf
+---
+
+
+
+
+
+### 07 plot effect size differences by subtype and across the five blocks for electrodes (all 93) and PCs (1, 2 and 3)
 
 code:
 - cmi_04_H_reval_G30nC2_asd_males_effectsize_comparison_plots.Rmd
@@ -177,21 +200,18 @@ plots:
 
 ---
 
-
-### run linear model at the PCA level
+### 07 run linear model at the PCA level
 
 code:
-- cmi_05_H_reval_asd_males_PCA_subtypeAnalyses_31.01.2023.Rmd
-- cmi_05_H_reval_asd_males_PCA_subtypeAnalyses_31.01.2023.html
+- s07_reval_adjH_PCA_subtypes_analysis.Rmd
 
 data to input:
-- tidy_H_reval_asd_males_PCA_rsopen_02.Feb.2023.csv
-- tidy_H_reval_asd_males_PCA_rsclosed_02.Feb.2023.csv
+- tidy_adjH_rsopen_PCA.csv
+- tidy_adjH_rsclosed_PCA.csv
 
 result files:
-- rsopen_PCA_subtype*age_24.Apr.2023.csv
-- rsclosed_PCA_subtype*age_24.Apr.2023.csv
-
+- 07_adjH_rsopen_PCA_subtype*age.csv
+- 07_adjH_rsclosed_PCA_subtype*age.csv
 ---
 
 ### check for pheno differences between the subtypes
