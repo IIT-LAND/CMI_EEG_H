@@ -19,6 +19,7 @@ Analyses heavily depend on use of `MATLAB`, `R`, and `Python`. For example, `rev
   + **nonfractal** (https://github.com/wonsang/nonfractal) - Used for computation of H.
 
   + **PLS toolbox in MATLAB** (https://www.rotman-baycrest.on.ca/index.php?section=84) - Used for the PLS analysis.
+
 ---
 
 ## Directories to set up:
@@ -47,6 +48,7 @@ plots:
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/pls
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/sigclust
 - pwd: ~/[root]/cmi_eeg_rs_H/reval/global/rsclosed/topoplots
+
 ---  
 
 ## Pipeline for the analyses:
@@ -57,6 +59,7 @@ code:
 
 `_00_master.sh` specifies sequence of steps for running code to do all steps
 `_0*.py` scripts implement each step 
+
 ---
 
 ### 01 run reval to identify subtypes
@@ -72,6 +75,7 @@ result files (outputted to `data/tidy directory`):
 - `tidy_adjH_revalsubgroups_rsclosed_umap+cl.csv` (umap resting state eyes closed)
 
 * note: if you have a single file with H+pheno data you'll have to adjust this script
+
 ---
 
 ### 02 check cluster consistency across rs eye conditions
@@ -83,6 +87,7 @@ data to input:
 
 plots:
 - `plots/reval/global/02_subtype_consistency_alluvialplot.pdf`
+
 ---
 
 ### 03 check subtypes with SigClust
@@ -99,6 +104,7 @@ result files:
 plots (same for rsclosed):
 - `plots/reval/global/rsopen/sigclust/03_adjH_UMAP_training.pdf`
 - `plots/reval/global/rsopen/sigclust/03_adjH_UMAP_validation.pdf`
+
 ---
 
 ### 04 run linear model at the electrode level 
@@ -119,6 +125,7 @@ plots (same for rsclosed):
 - `plots/reval/global/rsopen/adjH/04_adjH_age_%s.pdf`
 - `plots/reval/global/rsopen/adjH/04_adjH_age2_%s.pdf`
 - `plots/reval/global/rsopen/adjH/04_adjH_age_allElectrodes_facetBlocks.png`
+
 ---
 
 ### 05 plotting topoplots: average H, mean abs H differences, F and p-val
@@ -138,6 +145,7 @@ plots (same for rsclosed):
 - `plots/reval/global/rsclosed/topoplots/05_adjH_topoplot_mean_H_abs_diff_td-a2.jpg`
 - `plots/reval/global/rsclosed/topoplots/05_adjH_topoplot_lme_age_F.jpg`
 - `plots/reval/global/rsclosed/topoplots/05_adjH_topoplot_lme_age_pval_fdr.jpg`
+
 ---
 
 ### 06 run PCA and reconstruct H data from PC4
@@ -161,6 +169,7 @@ plots (same for rsclosed):
 - `plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PC2.jpg`
 - `plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PC3.jpg`
 - `plots/reval/global/rsopen/topoplots/06_adjH_topoplots_PC4.jpg`
+
 ---
 
 ### 07 run linear model at the PCA level
@@ -180,6 +189,7 @@ plots (same for rsclosed):
 - `plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s_blockscollapsed.pdf`
 - `plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s_age_groupscollapsed.pdf`
 - `plots/reval/global/rsopen/pca/07_adjH_PCAscores_%s_age_blockscollapsed.pdf`
+
 ---
 
 ### 08 plot effect size differences by subtype and across the five blocks for electrodes (all 93) and PCs (1, 2 and 3)
@@ -197,6 +207,7 @@ plots:
 - `plots/reval/global/rsclosed/d/H_rsclosed_d_byelectrode_acrossblocks_2col.pdf`
 - `plots/reval/global/rsopen/d/pca_pc1_rsopen_d_acrossblocks_2col.pdf`
 - `plots/reval/global/rsclosed/d/pca_pc1_rsclosed_d_acrossblocks_2col.pdf`
+
 ---
 
 ### 09 calculate and plot effect sizes for rec H data (PC1+PC4)
@@ -211,6 +222,7 @@ results:
 
 plots:
 - `plots/reval/global/rsopen/d/09_adjH_d_Hrec-PC1PC4_acrossblocks.pdf`
+
 ---
 
 ### 10 topoplots for effects sizes (H + recH data)
@@ -229,6 +241,7 @@ plots (same for rsclosed):
 - `plots/reval/global/rsopen/d/10_adjH_topoplot_mean_d_electH_tdva2.jpg`
 - `plots/reval/global/rsopen/d/10_adjH_topoplot_mean_d_PC1&4recH_tdva1.jpg`
 - `plots/reval/global/rsopen/d/10_adjH_topoplot_mean_d_PC1&4recH_tdva2.jpg`
+
 ---
 
 ### 11 Pheno analyses
@@ -250,6 +263,7 @@ plots (same for rsclosed):
 - `plots/reval/global/rsopen/pheno/11_adjH_rbs_total.pdf`
 - `plots/reval/global/rsopen/pheno/11_adjH_scq_total.pdf`
 - `plots/reval/global/rsopen/pheno/11_adjH_srs_total_T.pdf`
+
 ---
 
 ### 12 prepare dataframes for PLS
@@ -278,6 +292,7 @@ results (same for rsclosed):
 - `wide_rsopen_adjH_b3_a2.csv`
 - `wide_rsopen_adjH_b4_a2.csv`
 - `wide_rsopen_adjH_b5_a2.csv`
+
 ---
 
 ### 13, 14 run PLS
@@ -315,6 +330,7 @@ results:
 - `14_rsopen_ALLrev_bootlim_data4plotting_LV1_ci95.csv`
 - `14_rsclosed_ALL_bootlim_data4plotting_LV1_ci95.csv`
 - `14_rsclosed_ALLrev_bootlim_data4plotting_LV1_ci95.csv`
+
 ---
 
 ### 16
@@ -333,6 +349,7 @@ plots (same for rsclosed):
 - `plots/reval/global/rsopen/pls/16_rsclosed_LV1_corr.pdf`
 - `plots/reval/global/rsopen/pls/16_rsopen_LV1_corr.pdf`
 - `plots/reval/global/rsopen/pls/16_rsclosed_LV1_corr.pdf`
+
 ---
 
 ### 17
@@ -346,4 +363,5 @@ data to input:
 plots (same for rsclosed):
 - `plots/reval/global/rsopen/pls/17_adjH_topoplot_PLS_BSR.jpg`
 - `plots/reval/global/rsopen/pls/17_adjH_corr_matrix_byblock_BSR.jpg`
+
 ---
