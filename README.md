@@ -1,6 +1,6 @@
 # Electrophysiologically-defined excitation-inhibition autism neurosubtypes 
 
-This repository has all the code and tidy data for the analyses in Bertelsen, N., Vitale, A., Bolis, D., Mandelli, V. & Lombardo, M. V. Electrophysiologically-defined excitation-inhibition autism neurosubtypes.
+This repository has all the code and tidy data for the analyses in **Bertelsen, N., Vitale, A., Bolis, D., Mandelli, V. & Lombardo, M. V. Electrophysiologically-defined excitation-inhibition autism neurosubtypes.**
 
 The data utilized in this work comes from the publicly available CMI-HBN dataset (http://fcon_1000.projects.nitrc.org/indi/cmi_healthy_brain_network/). For more details about the CMI-HBN data see Alexander et al., 2017, Scientific Data (https://www.nature.com/articles/sdata2017181). Tidy downstream data for H for further downstream analyses can be found in the `wide_H+pheno.zip` file in this repository.
 
@@ -53,9 +53,9 @@ plots:
 
 ## Pipeline for the analyses:
 
-### 00 download, clean, preprocess, and postproc H
+### **pp** download, clean, preprocess, and postproc H
 code:
-- code for running these steps is within the `*code/pp` directory
+- code for running these steps is within the `code/pp` directory
 
 `_00_master.sh` specifies sequence of steps for running code to do all steps
 `_0*.py` scripts implement each step 
