@@ -5,6 +5,7 @@ This repository has all the code and tidy data for the analyses in Bertelsen, N.
 The data utilized in this work comes from the publicly available CMI-HBN dataset (http://fcon_1000.projects.nitrc.org/indi/cmi_healthy_brain_network/). For more details about the CMI-HBN data see Alexander et al., 2017, Scientific Data (https://www.nature.com/articles/sdata2017181). Tidy downstream data for H for further downstream analyses can be found in the `wide_H+pheno.zip` file in this repository.
 
 The code directory within this repository is organized to have all the main initial steps (within the `code/pp` directory) and will also have all the other code for downstream data analysis within it. Below is a description of each step of the analyses, with the code, data, and results to expect/use.
+
 ---
 
 ## General requirements, assumptions, dependencies
