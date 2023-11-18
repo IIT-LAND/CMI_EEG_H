@@ -1,0 +1,346 @@
+---
+title: "Preprocessing Report"
+output: html_document
+params:
+  subid: x
+  tasks: x
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r, warning=FALSE, message=FALSE, echo=FALSE}
+library(knitr)
+
+#rootpath = "/media/DATA/RAW/cmihbn"
+rootpath = "/Users/mlombardo/Dropbox/cmi_test"
+codepath = file.path(rootpath,"code")
+subid = params$subid
+tasks = params$tasks
+
+path_info = list(raw = file.path(rootpath,"data","raw"), preproc = file.path(rootpath,"data","preproc"))
+
+cmi_preproc_report_meta_data <- function(subid, tasks, path_info){
+
+  plot_types = c("tsplots.raw","tsplots.pp",
+                 "carpetplots.raw","carpetplots.pp",
+                 "tsnrcarpetplots.raw","tsnrcarpetplots.pp",
+                 "tsnrtopoplots.raw","tsnrtopoplots.pp",
+                 "badsampchanplots.pp",
+                 "ica1plots.pp","ica2plots.pp","ica3plots.pp",
+                 "brainprobplots.pp","psdplots.pp",
+                 "scorepochs1plots.pp","scorepochs2plots.pp",
+                 "dataquality")
+
+  tsplots.raw = vector(mode = "list", length = length(tasks))
+  names(tsplots.raw) = tasks
+  tsplots.pp = vector(mode = "list", length = length(tasks))
+  names(tsplots.pp) = tasks
+  carpetplots.raw = vector(mode = "list", length = length(tasks))
+  names(carpetplots.raw) = tasks
+  carpetplots.pp = vector(mode = "list", length = length(tasks))
+  names(carpetplots.pp) = tasks
+  tsnrcarpetplots.raw = vector(mode = "list", length = length(tasks))
+  names(tsnrcarpetplots.raw) = tasks
+  tsnrcarpetplots.pp = vector(mode = "list", length = length(tasks))
+  names(tsnrcarpetplots.pp) = tasks
+  tsnrtopoplots.raw = vector(mode = "list", length = length(tasks))
+  names(tsnrtopoplots.raw) = tasks
+  tsnrtopoplots.pp = vector(mode = "list", length = length(tasks))
+  names(tsnrtopoplots.raw) = tasks
+  badsampchanplots.pp = vector(mode = "list", length = length(tasks))
+  names(badsampchanplots.pp) = tasks
+  ica1plots.pp = vector(mode = "list", length = length(tasks))
+  names(ica1plots.pp) = tasks
+  ica2plots.pp = vector(mode = "list", length = length(tasks))
+  names(ica2plots.pp) = tasks
+  ica3plots.pp = vector(mode = "list", length = length(tasks))
+  names(ica3plots.pp) = tasks
+  brainprobplots.pp = vector(mode = "list", length = length(tasks))
+  names(brainprobplots.pp) = tasks
+  psdplots.pp = vector(mode = "list", length = length(tasks))
+  names(psdplots.pp) = tasks
+  scorepochs1plots.pp = vector(mode = "list", length = length(tasks))
+  names(scorepochs1plots.pp) = tasks
+  scorepochs2plots.pp = vector(mode = "list", length = length(tasks))
+  names(scorepochs2plots.pp) = tasks
+  dataquality = vector(mode = "list", length = length(tasks))
+  names(dataquality) = tasks
+
+  for (task in tasks){
+    tsplots.raw[[task]] = file.path(path_info[["raw"]], subid, task, sprintf("%s_%s_raw_tsplot.jpg",subid,task))
+    tsplots.pp[[task]] = file.path(path_info[["preproc"]], subid, task, sprintf("%s_%s_preproc_tsplot.jpg",subid,task))
+    carpetplots.raw[[task]] = file.path(path_info[["raw"]], subid, task, sprintf("%s_%s_raw_carpetplot.jpg",subid,task))
+    carpetplots.pp[[task]] = file.path(path_info[["preproc"]], subid, task, sprintf("%s_%s_preproc_carpetplot.jpg",subid,task))
+    tsnrcarpetplots.raw[[task]] = file.path(path_info[["raw"]], subid, task, sprintf("%s_%s_raw_tsnrcarpetplot.jpg",subid,task))
+    tsnrcarpetplots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,sprintf("%s_%s_preproc_tsnrcarpetplot.jpg",subid,task))
+    tsnrtopoplots.raw[[task]] = file.path(path_info[["raw"]], subid, task, sprintf("%s_%s_raw_tsnrtopoplot.jpg",subid,task))
+    tsnrtopoplots.pp[[task]] = file.path(path_info[["preproc"]], subid, task, sprintf("%s_%s_preproc_tsnrtopoplot.jpg",subid,task))
+    badsampchanplots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_badSamplesChannels.jpg",subid,task))
+    ica1plots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_ica_1_35.jpg",subid,task))
+    ica2plots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_ica_36_70.jpg",subid,task))
+    ica3plots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_ica_71_93.jpg",subid,task))
+    brainprobplots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_icacomponent_brain_probabilities.jpg",subid,task))
+    psdplots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_psd.jpg",subid,task))
+    scorepochs1plots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_scorepochs1.jpg",subid,task))
+    scorepochs2plots.pp[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_scorepochs2.jpg",subid,task))
+    dataquality[[task]] = file.path(path_info[["preproc"]], subid, task,
+                                            sprintf("%s_%s_preproc_dataQuality.jpg",subid,task))
+  }
+
+  meta_data = vector(mode = "list", length = length(plot_types))
+  names(meta_data) = plot_types
+
+  for (plot_type in plot_types){
+    meta_data[[plot_type]] = eval(as.name(plot_type))
+  }
+
+  return(meta_data)
+
+} # function cmi_preproc_report_meta_data
+
+preproc_meta_data = cmi_preproc_report_meta_data(subid = subid, tasks = tasks, path_info = path_info)
+```
+
+# `r subid` `r tasks`
+
+Preprocessing was implemented in MATLAB 2019b, using a combination of functions from EEGlab and other software (e.g., ASR). The primary function that does the preprocessing is called `cmi_run_preproc.m`. All of the preprocessing parameters utilized are within the `cfg` structure and these parameters are dumped at the end of the preprocessing (so check the final aspect of the output to see what these are, in case you are unsure).
+
+At various points in the preprocessing, figures are created, and in this report, we show those figures to help give the data analyst a better idea of the data and what it looks like before and after preprocessing. The preprocessing is not assured to result in high-quality usable data, and thus, this report is integral for helping the data analyst have a better feel for the data.
+
+1) Channel rejection: Preprocessing starts with removal of an outer ring of channels, indicated in the parameter file under the `cfg.pp.chan_toreject`.
+
+2) Downsampling: Next we downsample to 250 Hz.
+
+3) Band-pass filtering: We band-pass filter the data at values specified in `cfg.pp.hpf_cutoff` (1Hz) and `cfg.pp.lpf_cutoff` (80Hz).
+
+4) Removal of line noise: This is achieved with a notch filter centered at 60 Hz + or - 2 Hz.
+
+5) Bad sample and channel detection: We use clean_artifacts from ASR in an iterative fashion to identify bad samples and channels. A figure is created called `*preproc_badSamplesChannels.jpg` which will show the extent of bad samples and channels.
+
+6) Channel interpolation: This happens using `pop_interp` from EEGlab with the method of `spherical`.
+
+7) Average re-referencing:  This is implemented with `pop_reref` on the channel interpolated data.
+
+8) Channels pruning: A further pruning of channels is done before the ICA step. These channels were used for the interpolation process, but are now pruned before the ICA. These channels are indicated in `cfg.pp.chan_interp_prune`.
+
+9) ICA: Implemented with `pop_runica` and `icatype` set to `runica`.
+
+10) IClabels to classify components: IClabels is used on the ICA output to classify components as brain or non-brain related. We count the number of brain versus non-brain related components identified and pull out the brain probabilities and make a plot of this so the data analyst can see how many components are brain related and their probability of being classified as brain. We also make topoplots all 93 ICA components in order to show each and what their IClabel classification is.
+
+11) Project out non-brain ICA components:  Using `pop_subcomp` we feed it the indices of the non-brain labeled components so that they can be projected out of the data, thus denoising it.
+
+12) PSD plots before and after ICA denoising: Power spectral density (PSD) plots are created using the data before and after non-brain ICA components are projected out.
+
+13) Save final output to disk:  The final preprocessed output will be saved as `*preproc_icaDenoised.set`. However, in the situation where no brain-related components can be identified, the output is called `*preproc_notDenoised.set` and represents the preprocessed data but without any projecting out of ICA components that could be labeled as noise and non-brain derived.
+
+14) scorepochs: A procedure called `scorepochs` is done after the preprocessing in order to characterise small segments (e.g., 2 second epochs) and whether they are highly similar to each other and across channels the similarity stays high. This procedure produces some plots that are of relevance for evaluating the preprocessing and they are showed at the end of this report.
+
+15) Data quality metrics: Using `calcQuality.m` from `automagic`, we can calculate data quality metrics. We plot them for the raw data without any preprocessing, and then again after the preprocessing, to compare the difference. 
+    
+  `OHV` is the ratio of data points is > than absolute value of a voltage threshold.
+  `THV` is the ratio of time points whose standard deviation is > than some voltage threshold.
+  `CHV` is the ratio of channels whose standard deviation is > than some voltage threshold.
+  `MAV` is the unthresholded mean absolute voltage for the dataset.
+      
+
+# Plots of raw data
+
+## Time-series plot - Raw data
+
+This is a plot of the raw data before any preprocessing, with channels along the y-axis and time on the x-axis.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["tsplots.raw"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+} 
+```
+
+## Carpet plot - Raw data
+
+This is another representation of the raw data as a `carpetplot`. This is just a image representation of the time-series over time (x-axis) per each channel (y-axis).
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["carpetplots.raw"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Temporal signal-to-noise ratio (tSNR) carpet plot - Raw data
+
+For each channel we can compute the temporal signal-to-noise (tSNR) ratio. For each channel we get the mean over all timepoints and the standard deviation over all time-points. Then for each sample, tSNR is the mean-centered amplitude divided by the channel's standard deviation. The result is then shown as a carpetplot.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["tsnrcarpetplots.raw"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Temporal signal-to-noise ratio (tSNR) topological plot - Raw data
+
+Here are topological tSNR plots to show which channels have on average the highest or lowest tSNR.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["tsnrtopoplots.raw"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+# Preprocessing plots
+
+Here are some plots to show what the data looks like after all the preprocessing was complete.
+
+## Time-series plot - Preprocessed data
+
+A plot of the time-series, with time on the x-axis and channels on the y-axis.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["tsplots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Carpet plot - Preprocessed data
+
+The preprocessed data represented as a `carpetplot`. If the preprocessing was successful, you should likely see less evident vertical and horizontal bands in this plot compared to the raw data.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["carpetplots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Bad samples and channels - Preprocessed data
+
+Here is a figure to show which samples and channels were detected as bad from the iterative approach using ASR.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["badsampchanplots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Probabilities for ICA components being classified as Brain - Preprocessed data
+
+This plot shows the probability that a component is `brain` derived. The vertical orange line is the threshold for deeming the component a brain-related component, so probabilities need to be to the right of that orange line for the component to be considered brain-related. The upper corner also describes how many brain versus non-brain related components there are.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["brainprobplots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## ICA components 1-35 - Preprocessed data
+
+Here are topological plots of ICA components 1-35 along with the IClabels classification.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["ica1plots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## ICA components 36-70 - Preprocessed data
+
+Here are topological plots of ICA components 36-70 along with the IClabels classification.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["ica2plots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## ICA components 71-93 - Preprocessed data
+
+Here are topological plots of ICA components 71-93 along with the IClabels classification.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["ica3plots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Power spectral density plot - Preprocessed data
+
+Here are power spectral density (PSD) plots on the data before (left) and after (right) ICA denoising.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["psdplots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Temporal signal-to-noise ratio (tSNR) carpet plot - Preprocessed data
+
+tSNR carpet plot is represented here. The horizontal and vertical bands should be less evident here if preprocessing is doing its job well.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["tsnrcarpetplots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Temporal signal-to-noise ratio (tSNR) topological plot - Preprocessed data
+
+Topological plots of tSNR on the preprocessed data.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["tsnrtopoplots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+
+## scorepochs plots - Preprocessed data
+
+This first plot shows the scorepochs scores over epochs and channels. The summary score is the average value shown on the top left figure title.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["scorepochs1plots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+This second plot shows an example of one of the poorest scoring epochs.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["scorepochs2plots.pp"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
+
+## Data quality plot
+
+This plot shows the data quality measures, computed on the raw and preprocessed data.
+
+```{r, warning=FALSE, message=FALSE, out.width = "85%", fig.cap = " ", echo=FALSE}
+file2use = as.character(preproc_meta_data[["dataquality"]][[tasks]])
+if (file.exists(file2use)){
+  knitr::include_graphics(file2use)
+}
+```
