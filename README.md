@@ -109,7 +109,7 @@ plots (same for rsclosed):
 
 ### 04 run linear model at the electrode level 
 code:
-- `cmi_02_H_reval_G30nC2_asd_males_channel_subtypeAnalysis_31.01.2023.Rmd`
+- `s04_reval_adjH_electrode_subtypes_analysis.Rmd`
 
 data to input:
 - `tidy_adjH_revalsubgroups_global.csv`
