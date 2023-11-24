@@ -1,6 +1,6 @@
 # Electrophysiologically-defined excitation-inhibition autism neurosubtypes 
 
-This repository has all the code and tidy data for the analyses in **Bertelsen, N., Vitale, A., Bolis, D., Mandelli, V. & Lombardo, M. V. Electrophysiologically-defined excitation-inhibition autism neurosubtypes.**
+This repository has all the code and tidy data for the analyses in **Bertelsen, N., Vitale, A., Bolis, D., Mandelli, V. & Lombardo, M. V. Electrophysiologically-defined excitation-inhibition autism neurosubtypes. medRxiv. doi:10.1101/2023.11.22.23298729.** (https://www.medrxiv.org/content/10.1101/2023.11.22.23298729v1)
 
 The data utilized in this work comes from the publicly available CMI-HBN dataset (http://fcon_1000.projects.nitrc.org/indi/cmi_healthy_brain_network/). For more details about the CMI-HBN data see Alexander et al., 2017, Scientific Data (https://www.nature.com/articles/sdata2017181). Tidy downstream data for H for further downstream analyses can be found in the `wide_H+pheno.zip` file in this repository.
 
