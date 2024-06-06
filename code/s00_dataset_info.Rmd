@@ -1,0 +1,150 @@
+---
+title: "Dataset Info"
+author: "NatashaBertelsen"
+date: "2023-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Import relevant packages
+```{r, warning = FALSE, message = FALSE}
+library(easypackages)
+libraries("here","tidyverse","report")
+```
+
+### Import and set up dataframes
+```{r, warning=FALSE, message=FALSE}
+# set paths
+tidypath = here("data","tidy")
+resultpath = here("results", "reval", "global")
+
+# import data
+H_data = read.csv(file.path(tidypath,"tidy_H.csv"))
+pheno_data = read.csv(file.path(tidypath,"tidy_pheno.csv"))
+
+# filter by diagnoses of interest
+pheno_data = pheno_data %>% 
+  filter(dx1_short == "ASD" | dx1_short == "TD" & dx1_long != "No Diagnosis Given: Incomplete Eval") %>%
+  distinct()
+
+# merge H and pheno data into one dataframe
+df =  merge(pheno_data, H_data, by = "subid")
+
+# resting state df
+df_rs = df %>% 
+  filter(task == "RestingState")
+```
+
+### Calculate total N and N without rs data
+```{r, warning=FALSE, message=FALSE}
+# find total N
+N_tot = length(unique(df$subid))
+sprintf("Total number of subjects: %s", N_tot) #669
+
+# find total N autism
+df_autism = df %>% filter(dx1_short == "ASD")
+N_tot_autism = length(unique(df_autism$subid))
+sprintf("Total number of autistic subjects: %s", N_tot_autism) #412
+
+# find total N TD
+df_td = df %>% filter(dx1_short == "TD")
+N_tot_td = length(unique(df_td$subid))
+sprintf("Total number of typically developing subjects: %s", N_tot_td) #257
+
+# find N for resting state
+N_tot_rs = length(unique(df_rs$subid))
+sprintf("Total number of subjects with resting state data: %s", N_tot_rs) #654
+
+# find number of subjects without resting state data
+N_no_rs = N_tot - N_tot_rs
+sprintf("Number of subjects without resting state data: %s", N_no_rs) #15
+
+# select "subid" and "dx1_short" columns
+dt2chk_1 = df_rs %>% 
+  select(subid, dx1_short) %>%
+  distinct()
+
+# count number of occurrences for "Yes" and "No"
+summ_tb_1 = as.data.frame(dt2chk_1 %>% 
+                          group_by(dx1_short) %>%
+                          summarise(N = n())
+)
+```
+
+### Check N subjects to exclude
+```{r, warning = FALSE, message = FALSE}
+# select "subid" and "exclude" columns
+dt2chk_2 = df_rs %>% 
+  select(subid, exclude) %>%
+  distinct()
+
+# count number of occurrences for "Yes" and "No"
+summ_tb_2 = as.data.frame(dt2chk_2 %>% 
+                          group_by(exclude) %>%
+                          summarise(N = n())
+)
+
+N_keep = summ_tb_2[summ_tb_2 == "No", "N"]
+sprintf("Number of subjects to keep: %s", N_keep) #548
+
+N_excl = summ_tb_2[summ_tb_2 == "Yes", "N"]
+sprintf("Number of subjects to exclude: %s", N_excl) #106
+
+# calculate % subjects discarded after preproc
+N_excl_perc = N_excl*100/N_tot_rs
+sprintf("Percentage of subjects to exclude: %.2f%%", N_excl_perc) #16.21%
+
+```
+
+### Check N diagnosis and sex
+```{r, warning = FALSE, message = FALSE}
+dt2chk_2 = df_rs %>% 
+  filter(exclude == "No") %>%
+  select(subid, dx1_short, sex) %>%
+  distinct()
+
+summ_tb_2 = as.data.frame(dt2chk_2 %>% 
+                          group_by(dx1_short, sex) %>%
+                          summarise(N = n())
+)
+
+# calculate N TD and autistic 
+N_td = sum(summ_tb_2[summ_tb_2$dx1_short == "TD", "N"])
+sprintf("Total N tipically developing subjects: %s", N_td)
+N_a = sum(summ_tb_2[summ_tb_2$dx1_short == "ASD", "N"])
+sprintf("Total N autistic subjects: %s", N_a)
+
+# calculate N females and males
+N_females = sum(summ_tb_2[summ_tb_2$sex == "Female", "N"])
+sprintf("Total N female subjects: %s", N_females)
+N_males = sum(summ_tb_2[summ_tb_2$sex == "Male", "N"])
+sprintf("Total N males subjects: %s", N_males)
+
+# calculate N TD and autistic females and males
+N_td_females = sum(summ_tb_2[summ_tb_2$dx1_short == "TD" & summ_tb_2$sex == "Female", "N"])
+sprintf("Total N typically developing female subjects: %s", N_td_females)
+
+N_td_males = sum(summ_tb_2[summ_tb_2$dx1_short == "TD" & summ_tb_2$sex == "Male", "N"])
+sprintf("Total N typically developing male subjects: %s", N_td_males)
+
+N_a_females = sum(summ_tb_2[summ_tb_2$dx1_short == "ASD" & summ_tb_2$sex == "Female", "N"])
+sprintf("Total N autistic female subjects: %s", N_a_females)
+
+N_a_males = sum(summ_tb_2[summ_tb_2$dx1_short == "ASD" & summ_tb_2$sex == "Male", "N"])
+sprintf("Total N autistic male subjects: %s", N_a_males)
+```
+# Save subject IDs
+```{r, warning = FALSE, message = FALSE}
+
+subids = df_rs %>%
+  filter(exclude =="No" & sex == "Male") %>%
+  select(subid) %>%
+  distinct()
+
+write.csv(subids, file = file.path(resultpath,"00_subids_td+autism_males.csv"))
+```
+
+

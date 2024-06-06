@@ -1,0 +1,167 @@
+---
+title: "CMI H - Statistical validation of reval subtypes with SigClust"
+author: "NatashaBertelsen"
+date: "2023-10-01"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load libraries and read in data
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here", "sigclust", "RColorBrewer")
+source(here("code","cmi_utils.R"))
+```
+
+### Set fixed parameters
+```{r, warning=FALSE, message=FALSE}
+nreps_sigclust_repeat = 10000
+nreps_sim = 10000
+```
+
+### Set paths
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+tidypath = here("data","tidy")
+resultpath = here("results", "reval", "global")
+plotpath = here("plots", "reval", "global")
+rsopen_plot_path = file.path(plotpath, "rsopen")
+rsclosed_plot_path = file.path(plotpath, "rsclosed")
+
+```
+
+### Load data and filter out subjects with diagnosis not of interest
+```{r, warning=FALSE, message=FALSE}
+# load
+rseo_umap_data = read.csv(file.path(tidypath,"tidy_adjH_revalsubgroups_rsopen_umap+cl.csv"))
+rsec_umap_data = read.csv(file.path(tidypath,"tidy_adjH_revalsubgroups_rsclosed_umap+cl.csv"))
+```
+
+## Run Sigclust
+```{r, warning=FALSE, message=FALSE}
+# run on eyes open training data
+data2use = rseo_umap_data %>% filter(dataset=="training") %>% select(umap1,umap2,subtype)
+data2use$subtype = factor(data2use$subtype)
+
+rseo_sigclust_res = sigclust(data2use[,c("umap1","umap2")],
+                             nsim = nreps_sim, nrep = nreps_sigclust_repeat,
+                             labflag = 1, 
+                             label = data2use[,"subtype"],
+                             icovest=2)
+
+getPalette = colorRampPalette(brewer.pal(9, "GnBu"))
+
+p = ggplot(data=data2use, aes(x=umap1,y=umap2)) +
+  geom_density_2d_filled() + 
+  geom_point(data=data2use, aes(colour = subtype), size = 1) +
+  scale_color_manual(values = c("1" = "#FDE725FF", "2" = "#8B008B")) +
+  scale_fill_manual(values = rev(getPalette(13))) +
+  theme_minimal() +
+  xlim(1, 8) +
+  ylim(9, 15) +
+  theme(aspect.ratio = 1.5)
+p
+ggsave(filename = file.path(rsopen_plot_path, "sigclust","03_adjH_UMAP_training.pdf"))
+
+rseo_sigclust_res@xcindex
+p_val_rseo_training = (sum(rseo_sigclust_res@simcindex<=rseo_sigclust_res@xcindex)+1)/(nreps_sim+1)
+p_val_rseo_training
+plot(rseo_sigclust_res)
+
+# run on eyes open validation data
+data2use = rseo_umap_data %>% filter(dataset=="validation") %>% select(umap1,umap2,subtype)
+data2use$subtype = factor(data2use$subtype)
+
+rseo_sigclust_res = sigclust(data2use[,c("umap1","umap2")],
+                             nsim = nreps_sim, nrep = nreps_sigclust_repeat,
+                             labflag = 1, 
+                             label = data2use[,"subtype"],
+                             icovest=2)
+
+getPalette = colorRampPalette(brewer.pal(9, "GnBu"))
+
+p = ggplot(data=data2use, aes(x=umap1,y=umap2)) +
+  geom_density_2d_filled() +
+  geom_point(data=data2use, aes(colour = subtype), size = 2) +
+  scale_color_manual(values = c("1" = "#FDE725FF", "2" = "#8B008B")) +
+  scale_fill_manual(values = rev(getPalette(13))) +
+  theme_minimal() #+
+  # xlim(4, 8.5) +
+  # ylim(0.5, 10.5)
+p
+ggsave(filename = file.path(rsopen_plot_path,"sigclust","03_adjH_UMAP_validation.pdf"))
+
+rseo_sigclust_res@xcindex
+p_val_rseo_validation = (sum(rseo_sigclust_res@simcindex<=rseo_sigclust_res@xcindex)+1)/(nreps_sim+1)
+p_val_rseo_validation
+plot(rseo_sigclust_res)
+
+
+# run on eyes closed training data
+data2use = rsec_umap_data %>% filter(dataset=="training") %>% select(umap1,umap2,subtype)
+data2use$subtype = factor(data2use$subtype)
+
+rsec_sigclust_res = sigclust(data2use[,c("umap1","umap2")],
+                             nsim = nreps_sim, nrep = nreps_sigclust_repeat,
+                             labflag = 1,
+                             label = data2use[,"subtype"],
+                             icovest=2)
+p = ggplot(data=data2use, aes(x=umap1,y=umap2)) +
+  geom_density_2d_filled() + 
+  geom_point(data=data2use, aes(colour = subtype), size = 1) +
+  scale_color_manual(values = c("1" = "#FDE725FF", "2" = "#8B008B")) +
+  scale_fill_manual(values = rev(getPalette(13))) +
+  theme_minimal() +
+  xlim(10.5, 19.5) +
+  ylim(2.5, 7.5) +
+  theme(aspect.ratio = 1.5)
+p
+ggsave(filename = file.path(rsclosed_plot_path,"sigclust","03_adjH_UMAP_training.pdf"))
+
+rsec_sigclust_res@xcindex
+p_val_rsec_training = (sum(rsec_sigclust_res@simcindex<=rsec_sigclust_res@xcindex)+1)/(nreps_sim+1)
+p_val_rsec_training
+plot(rsec_sigclust_res)
+
+# run on eyes closed validation data
+data2use = rsec_umap_data %>% filter(dataset=="validation") %>% select(umap1,umap2,subtype)
+data2use$subtype = factor(data2use$subtype)
+
+rsec_sigclust_res = sigclust(data2use[,c("umap1","umap2")],
+                             nsim = nreps_sim, nrep = nreps_sigclust_repeat,
+                             labflag = 1,
+                             label = data2use[,"subtype"],
+                             icovest=2)
+p = ggplot(data=data2use, aes(x=umap1,y=umap2)) +
+  geom_density_2d_filled() + 
+  geom_point(data=data2use, aes(colour = subtype), size = 2) +
+  scale_color_manual(values = c("1" = "#FDE725FF", "2" = "#8B008B")) +
+  scale_fill_manual(values = rev(getPalette(13))) +
+  theme_minimal() #+
+  # xlim(4, 9.5) +
+  # ylim(-4.5,6.5)
+p
+ggsave(filename = file.path(rsclosed_plot_path,"sigclust","03_adjH_UMAP_validation.pdf"))
+
+rsec_sigclust_res@xcindex
+p_val_rsec_validation = (sum(rsec_sigclust_res@simcindex<=rsec_sigclust_res@xcindex)+1)/(nreps_sim+1)
+p_val_rsec_validation
+plot(rsec_sigclust_res)
+
+sigclust_results = data.frame(matrix(ncol = 2, nrow = 2))
+rownames(sigclust_results) = c('rsopen', 'rsclosed')
+colnames(sigclust_results) = c('training', 'validation')
+
+sigclust_results['rsopen', 'training'] = p_val_rseo_training
+sigclust_results['rsopen', 'validation'] = p_val_rseo_validation
+sigclust_results['rsclosed', 'training'] = p_val_rsec_training
+sigclust_results['rsclosed', 'validation'] = p_val_rsec_validation
+
+# save
+write.csv(sigclust_results, file = file.path(resultpath,"03_adjH_sigclust10000x_results.csv"))
+
+sigclust_results
+```

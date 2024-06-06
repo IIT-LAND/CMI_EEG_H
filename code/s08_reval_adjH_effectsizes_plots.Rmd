@@ -1,0 +1,293 @@
+---
+title: "Cmi H reval asd males rs effect sizes"
+author: "NatashaBertelsen"
+date: "Oct/01/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load libraries
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse", "reshape", "report","lmerTest","sigclust", "stringr", "scales")
+source(here("code","cmi_utils.R"))
+```
+
+### Set paths
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+resultpath = here("results", "reval", "global")
+plotpath = here("plots", "reval", "global")
+rsopen_plotpath = file.path(plotpath, "rsopen")
+rsclosed_plotpath = file.path(plotpath, "rsclosed")
+```
+
+### Load data
+```{r, warning=FALSE, message=FALSE}
+# load
+rseo_results = read.csv(file.path(resultpath,"04_adjH_rsopen_electrodes_subtype*age.csv"))
+rsec_results = read.csv(file.path(resultpath,"04_adjH_rsclosed_electrodes_subtype*age.csv"))
+
+rseo_pca_results = read.csv(file.path(resultpath,"07_adjH_rsopen_PCA_subtype*age.csv"))
+rsec_pca_results = read.csv(file.path(resultpath,"07_adjH_rsclosed_PCA_subtype*age.csv"))
+```
+
+### Create dataframes
+```{r, warning = FALSE, message = FALSE}
+# electrodes
+cols2keep_tdva1 = c("td_vs_a1_b1_d", "td_vs_a1_b2_d", "td_vs_a1_b3_d","td_vs_a1_b4_d", "td_vs_a1_b5_d")
+cols2keep_tdva2 = c("td_vs_a2_b1_d", "td_vs_a2_b2_d", "td_vs_a2_b3_d","td_vs_a2_b4_d", "td_vs_a2_b5_d")
+
+# pca
+cols2keep_pca_tdva1 = c("td_vs_a1_b1_d", "td_vs_a1_b2_d", "td_vs_a1_b3_d","td_vs_a1_b4_d", "td_vs_a1_b5_d")
+cols2keep_pca_tdva2 = c("td_vs_a2_b1_d", "td_vs_a2_b2_d", "td_vs_a2_b3_d","td_vs_a2_b4_d", "td_vs_a2_b5_d")
+
+
+## RS EYES OPEN
+# create td vs a1 dataframe
+# electrodes df
+rsopen_tdva1_d = rseo_results %>% select(c("Electrode", cols2keep_tdva1)) # select columns
+rsopen_tdva1_d  = pivot_longer(rsopen_tdva1_d, cols2keep_tdva1) # pivot into long format (many rows)
+rsopen_tdva1_d["name"] = data.frame(rep(c(1:5), length(rseo_results$Electrode))) # substiute current 'name' with block number
+comparison = data.frame(rep("tdva1", nrow(rsopen_tdva1_d))) # add the specific comparison
+rsopen_tdva1_d = cbind(comparison, rsopen_tdva1_d) # join the comparison to the data
+colnames(rsopen_tdva1_d)[1] = "comparison" # rename
+colnames(rsopen_tdva1_d)[2] = "electrode" # rename
+colnames(rsopen_tdva1_d)[3] = "block" # rename
+colnames(rsopen_tdva1_d)[4] = "d" # rename
+rsopen_tdva1_d$block = as.factor(rsopen_tdva1_d$block)
+
+# pca df - same as above
+rsopen_pca_tdva1_d = rseo_pca_results %>% select(c("principal_component", cols2keep_pca_tdva1))
+rsopen_pca_tdva1_d  = pivot_longer(rsopen_pca_tdva1_d, cols2keep_pca_tdva1)
+rsopen_pca_tdva1_d["name"] = data.frame(rep(c(1:5), length(rseo_pca_results$principal_component)))
+comparison_pca = data.frame(rep("tdva1", nrow(rsopen_pca_tdva1_d)))
+rsopen_pca_tdva1_d = cbind(comparison_pca, rsopen_pca_tdva1_d)
+colnames(rsopen_pca_tdva1_d)[1] = "comparison"
+colnames(rsopen_pca_tdva1_d)[2] = "pc"
+colnames(rsopen_pca_tdva1_d)[3] = "block"
+colnames(rsopen_pca_tdva1_d)[4] = "d"
+rsopen_pca_tdva1_d$block = as.factor(rsopen_pca_tdva1_d$block)
+
+
+# create td vs a2 dataframe
+#electrodes df
+rsopen_tdva2_d = rseo_results %>% select(c("Electrode", cols2keep_tdva2)) # select columns
+rsopen_tdva2_d  = pivot_longer(rsopen_tdva2_d, cols2keep_tdva2) # pivot into long format (many rows)
+rsopen_tdva2_d["name"] = data.frame(rep(c(1:5), length(rseo_results$Electrode))) # substiute current 'name' with block number
+comparison = data.frame(rep("tdva2", nrow(rsopen_tdva2_d))) # add the specific comparison
+rsopen_tdva2_d = cbind(comparison, rsopen_tdva2_d) # join the comparison to the data
+colnames(rsopen_tdva2_d)[1] = "comparison" # rename
+colnames(rsopen_tdva2_d)[2] = "electrode" # rename
+colnames(rsopen_tdva2_d)[3] = "block" # rename
+colnames(rsopen_tdva2_d)[4] = "d" # rename
+rsopen_tdva2_d$block = as.factor(rsopen_tdva2_d$block)
+
+# pca df - same as above
+rsopen_pca_tdva2_d = rseo_pca_results %>% select(c("principal_component", cols2keep_pca_tdva2))
+rsopen_pca_tdva2_d  = pivot_longer(rsopen_pca_tdva2_d, cols2keep_pca_tdva2)
+rsopen_pca_tdva2_d["name"] = data.frame(rep(c(1:5), length(rseo_pca_results$principal_component)))
+comparison_pca = data.frame(rep("tdva2", nrow(rsopen_pca_tdva2_d)))
+rsopen_pca_tdva2_d = cbind(comparison_pca, rsopen_pca_tdva2_d)
+colnames(rsopen_pca_tdva2_d)[1] = "comparison"
+colnames(rsopen_pca_tdva2_d)[2] = "pc"
+colnames(rsopen_pca_tdva2_d)[3] = "block"
+colnames(rsopen_pca_tdva2_d)[4] = "d"
+rsopen_pca_tdva2_d$block = as.factor(rsopen_pca_tdva2_d$block)
+
+# merge into one dataframe
+df_rsopen = rbind(rsopen_tdva1_d, rsopen_tdva2_d)
+df_pca_rsopen = rbind(rsopen_pca_tdva1_d, rsopen_pca_tdva2_d)
+
+#---------
+## RS EYES CLOSED
+# create td vs a1 dataframe
+# electrodes df
+rsclosed_tdva1_d = rsec_results %>% select(c("Electrode", cols2keep_tdva1)) # select columns
+rsclosed_tdva1_d  = pivot_longer(rsclosed_tdva1_d, cols2keep_tdva1) # pivot into long format (many rows)
+rsclosed_tdva1_d["name"] = data.frame(rep(c(1:5), length(rsec_results$Electrode))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva1", nrow(rsclosed_tdva1_d))) # add the specific comparison
+rsclosed_tdva1_d = cbind(comparison, rsclosed_tdva1_d) # join the comparison to the data
+colnames(rsclosed_tdva1_d)[1] = "comparison" # rename
+colnames(rsclosed_tdva1_d)[2] = "electrode" # rename
+colnames(rsclosed_tdva1_d)[3] = "block" # rename
+colnames(rsclosed_tdva1_d)[4] = "d" # rename
+rsclosed_tdva1_d$block = as.factor(rsclosed_tdva1_d$block)
+
+# pca df - same as above
+rsclosed_pca_tdva1_d = rsec_pca_results %>% select(c("principal_component", cols2keep_pca_tdva1))
+rsclosed_pca_tdva1_d  = pivot_longer(rsclosed_pca_tdva1_d, cols2keep_pca_tdva1)
+rsclosed_pca_tdva1_d["name"] = data.frame(rep(c(1:5), length(rsec_pca_results$principal_component)))
+comparison_pca = data.frame(rep("tdva1", nrow(rsclosed_pca_tdva1_d)))
+rsclosed_pca_tdva1_d = cbind(comparison_pca, rsclosed_pca_tdva1_d)
+colnames(rsclosed_pca_tdva1_d)[1] = "comparison"
+colnames(rsclosed_pca_tdva1_d)[2] = "pc"
+colnames(rsclosed_pca_tdva1_d)[3] = "block"
+colnames(rsclosed_pca_tdva1_d)[4] = "d"
+rsclosed_pca_tdva1_d$block = as.factor(rsclosed_pca_tdva1_d$block)
+
+# create td vs asd2 dataframe
+#electrodes df
+rsclosed_tdva2_d = rsec_results %>% select(c("Electrode", cols2keep_tdva2)) # select columns
+rsclosed_tdva2_d  = pivot_longer(rsclosed_tdva2_d, cols2keep_tdva2) # pivot into long format (many rows)
+rsclosed_tdva2_d["name"] = data.frame(rep(c(1:5), length(rsec_results$Electrode))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva2", nrow(rsclosed_tdva2_d))) # add the specific comparison
+rsclosed_tdva2_d = cbind(comparison, rsclosed_tdva2_d) # join the comparison to the data
+colnames(rsclosed_tdva2_d)[1] = "comparison" # rename
+colnames(rsclosed_tdva2_d)[2] = "electrode" # rename
+colnames(rsclosed_tdva2_d)[3] = "block" # rename
+colnames(rsclosed_tdva2_d)[4] = "d" # rename
+rsclosed_tdva2_d$block = as.factor(rsclosed_tdva2_d$block)
+
+# pca df - same as above
+rsclosed_pca_tdva2_d = rsec_pca_results %>% select(c("principal_component", cols2keep_pca_tdva2))
+rsclosed_pca_tdva2_d  = pivot_longer(rsclosed_pca_tdva2_d, cols2keep_pca_tdva2)
+rsclosed_pca_tdva2_d["name"] = data.frame(rep(c(1:5), length(rsec_pca_results$principal_component)))
+comparison_pca = data.frame(rep("tdva2", nrow(rsclosed_pca_tdva2_d)))
+rsclosed_pca_tdva2_d = cbind(comparison_pca, rsclosed_pca_tdva2_d)
+colnames(rsclosed_pca_tdva2_d)[1] = "comparison"
+colnames(rsclosed_pca_tdva2_d)[2] = "pc"
+colnames(rsclosed_pca_tdva2_d)[3] = "block"
+colnames(rsclosed_pca_tdva2_d)[4] = "d"
+rsclosed_pca_tdva2_d$block = as.factor(rsclosed_pca_tdva2_d$block)
+
+# merge into one dataframe
+df_rsclosed = rbind(rsclosed_tdva1_d, rsclosed_tdva2_d)
+df_pca_rsclosed = rbind(rsclosed_pca_tdva1_d, rsclosed_pca_tdva2_d)
+```
+
+### Plot effect sizes for all electrodes
+```{r, warning=FALSE, message=FALSE}
+## Electrodes
+## Plot effect size differences
+
+mycolorpalette = c('gold2', 'darkmagenta')
+
+# plot eyes open
+p = ggplot(data = df_rsopen, aes(x = block, y = d)) +
+  geom_line(aes(group = interaction(comparison, electrode)), alpha = .5) +
+  #geom_point(color = 'Black', alpha = 1, size = 8) +
+  geom_point(aes(col = comparison), alpha = 0.3, size = 3) +
+  geom_smooth(data = df_rsopen, aes(group = comparison), color = 'Black', alpha = .3, linewidth = 3, method = lm) +
+  geom_smooth(data = df_rsopen, aes(group = comparison, color = comparison),  alpha = .3, linewidth = 2, method = lm) +
+  labs(x = "\nblock", y = "d\n", title = 'eyes open', subtitle = "H-based Cohens d\n")  +
+  ylim(c(-1.2, 1.2)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = 18),
+    plot.subtitle = element_text(size = 18),
+    axis.title.x = element_text(size = 18),  axis.text.x = element_text(size = 17), 
+    axis.title.y = element_text(size = 18), axis.text.y = element_text(size = 17),
+    legend.title = element_blank(), legend.text = element_text(size = 17),
+    aspect.ratio = .7)
+p
+ggsave(filename = file.path(rsopen_plotpath,"d","08_adjH_d_all-electrodes_acrossblocks.pdf"))
+
+
+## Plot effect size differences
+# plot eyes closed
+p = ggplot(data = df_rsclosed, aes(x = block, y = d)) +
+  geom_line(aes(group = interaction(comparison, electrode)), alpha = .5) +
+  #geom_point(color = 'Black', alpha = 1, size = 8) +
+  geom_point(aes(col = comparison), alpha = 0.3, size = 3) +
+  geom_smooth(data = df_rsclosed, aes(group = comparison), color = 'Black', alpha = .3, linewidth = 3, method = lm) +
+  geom_smooth(data = df_rsclosed, aes(group = comparison, color = comparison),  alpha = .3, linewidth = 2, method = lm) +
+  labs(x = "\nblock", y = "d\n", title = 'eyes closed', subtitle = "H-based Cohens d\n")  +
+  ylim(c(-1.2, 1.2)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = 18),
+    plot.subtitle = element_text(size = 18),
+    axis.title.x = element_text(size = 18),  axis.text.x = element_text(size = 17), 
+    axis.title.y = element_text(size = 18), axis.text.y = element_text(size = 17),
+    legend.title = element_blank(), legend.text = element_text(size = 17),
+    aspect.ratio = .7)
+
+p
+ggsave(filename = file.path(rsclosed_plotpath,"d","08_adjH_d_all-electrodes_acrossblocks.pdf"))
+
+```
+### Plot effect sizes for PCs of interest
+```{r, warning=FALSE, message=FALSE}
+## Plot effect size differences
+# constants
+ax_title = 20
+ax_txt = 20
+a_ratio = .6
+
+# plot eyes open
+# pc1
+pcoi = "PC1"
+p = ggplot(data = df_pca_rsopen %>% subset(pc == pcoi), aes(x = block, y = d)) +
+  geom_line(aes(group = comparison), alpha = .8, linewidth = .8) +
+  geom_point(alpha = 1, size = 9, colour = "black") +
+  geom_point(aes(col = comparison), alpha = 1, size = 8) +
+  labs(x = "\nblock", y = "d\n", title = 'Eyes open', subtitle = sprintf('Cohen\'s d for %s', pcoi))  +
+  scale_y_continuous(limits = c(-1.5, 1.5), 
+                     breaks = c(-1.5, -.5, .5, 1.5),
+                     labels = c(-1.5, -.5, .5, 1.5)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = ax_title ),
+        plot.subtitle = element_text(size = ax_title),
+    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
+    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
+    legend.title = element_blank(),
+    legend.text = element_text(size = ax_txt),
+    aspect.ratio = a_ratio)
+
+p
+ggsave(filename = file.path(rsopen_plotpath,"d", sprintf("08_adjH_d_%s_acrossblocks.pdf", pcoi)))
+
+# pc4
+pcoi = "PC4"
+p = ggplot(data = df_pca_rsopen %>% subset(pc == pcoi), aes(x = block, y = d)) +
+  geom_line(aes(group = comparison), alpha = .8, linewidth = .8) +
+  geom_point(alpha = 1, size = 9, colour = "black") +
+  geom_point(aes(col = comparison), alpha = 1, size = 8) +
+  labs(x = "\nblock", y = "d\n", title = 'Eyes open', subtitle = sprintf('Cohen\'s d for %s', pcoi))  +
+  scale_y_continuous(limits = c(0, .5), 
+                     breaks = c(0, .1, .2, .3, .4, .5),
+                     labels = c(0, .1, .2, .3, .4, .5)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = ax_title ),
+        plot.subtitle = element_text(size = ax_title),
+    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
+    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
+    legend.title = element_blank(),
+    legend.text = element_text(size = ax_txt),
+    aspect.ratio = a_ratio)
+p
+ggsave(filename = file.path(rsopen_plotpath,"d", sprintf("08_adjH_d_%s_acrossblocks.pdf", pcoi)))
+
+
+# Plot eyes closed
+# pc1
+pcoi = "PC1"
+p = ggplot(data = df_pca_rsclosed %>% subset(pc == pcoi), aes(x = block, y = d)) +
+  geom_line(aes(group = comparison), alpha = .8, linewidth = .8) +
+  geom_point(alpha = 1, size = 9, colour = "black") +
+  geom_point(aes(col = comparison), alpha = 1, size = 8) +
+  labs(x = "\nblock", y = "d\n", title = 'Eyes closed', subtitle = sprintf('Cohen\'s d for %s', pcoi))  +
+  scale_y_continuous(limits = c(-1.5, 1.5), 
+                     breaks = c(-1.5, -.5, .5, 1.5),
+                     labels = c(-1.5, -.5, .5, 1.5)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = ax_title ),
+        plot.subtitle = element_text(size = ax_title),
+    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
+    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
+    legend.title = element_blank(),
+    legend.text = element_text(size = ax_txt),
+    aspect.ratio = a_ratio)
+
+p
+ggsave(filename = file.path(rsclosed_plotpath,"d", sprintf("08_adjH_d_%s_acrossblocks.pdf", pcoi)))
+
+
+```

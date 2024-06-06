@@ -1,0 +1,349 @@
+---
+title: "CMI H reval clusters: consistency across rs conditions"
+author: "NatashaBertelsen"
+date: '2022-11-23'
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load packages
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse","report", "stringr", "ggalluvial")
+source(here("code","cmi_utils.R"))
+```
+
+### Define paths and import data
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+tidypath = here("data","tidy")
+plotpath = here("plots", "reval","global")
+resultpath = here("results", "reval","global")
+
+tidy_data = read.csv(file.path(tidypath,"tidy_adjH_revalsubgroups_global.csv"))
+```
+
+### Check group differences
+```{r, warning = FALSE, message = FALSE}
+# filter and select columns of interest
+rs_data = tidy_data %>% 
+  filter(tidy_data$dx1_short != "TD") %>%
+  unite(fiq, wais_fiq, wasi_fiq,wisc_fiq, na.rm = TRUE) %>%
+  select(subid, rsopen_subgroup_glob, rsclosed_subgroup_glob, 
+         study_site,
+         age, fiq, 
+         assq_total, scq_total, rbs_total, srs_total_T) %>%
+  distinct()
+
+# make fiq numeric
+rs_data$fiq = as.numeric(rs_data$fiq)
+
+# create subtype column
+rs_data$subtype = NA
+
+# find "consistent" and "inconsistent" subtypes
+rs_data[rs_data$rsopen_subgroup_glob == 1 & rs_data$rsclosed_subgroup_glob == 1, 'subtype'] = 1
+rs_data[rs_data$rsopen_subgroup_glob == 2 & rs_data$rsclosed_subgroup_glob == 2, 'subtype'] = 2
+rs_data[rs_data$rsopen_subgroup_glob == 1 & rs_data$rsclosed_subgroup_glob == 2 | rs_data$rsopen_subgroup_glob == 2 & rs_data$rsclosed_subgroup_glob == 1, 'subtype'] = 3
+
+# relevel to make stats against the inconsistent subtype
+rs_data$subtype = factor(rs_data$subtype)
+ # relevel data for plotting
+  level_order <- c('3', '1', '2') 
+  rs_data$subtype = factor(rs_data$subtype, levels = level_order,
+    labels = c("autism3", "autism1", "autism2"))
+```
+
+```{r, warning=FALSE, message=FALSE}
+# summarise data
+rs_data_summ = as.data.frame(rs_data %>% 
+                             group_by(subtype) %>%
+                             summarise(N = n(),
+                                       mean_age = mean(age, na.rm = TRUE),
+                                       std_age = sd(age, na.rm = TRUE),
+                                       mean_fiq = mean(fiq, na.rm = TRUE),
+                                       std_fiq = sd(fiq, na.rm = TRUE),
+                                       mean_srs = mean(srs_total_T, na.rm = TRUE),
+                                       std_srs = sd(srs_total_T, na.rm = TRUE),
+                                       mean_rbs = mean(rbs_total, na.rm = TRUE),
+                                       std_rbs = sd(rbs_total, na.rm = TRUE),
+                                       mean_scq = mean(scq_total, na.rm = TRUE),
+                                       std_scq = sd(scq_total, na.rm = TRUE),
+                                       mean_assq = mean(assq_total, na.rm = TRUE),
+                                       std_assq = sd(assq_total, na.rm = TRUE))
+)
+
+# save to file
+write.csv(rs_data_summ, file = file.path(resultpath,"02_adjH_subtype_consistency_summ_stats.csv"))
+
+rs_data_summ
+```
+
+### Set things up to run linear model 
+```{r, warning=FALSE, message=FALSE}
+# Set up formulae
+form2use_age = as.formula("age ~ subtype")
+form2use_fiq = as.formula("fiq ~ subtype")
+form2use_assq = as.formula("assq_total ~ subtype")
+form2use_rbs = as.formula("rbs_total ~ subtype")
+form2use_scq = as.formula("scq_total ~ subtype")
+form2use_srs = as.formula("srs_total_T ~ subtype")
+
+# prep output dataframe
+output_cols = c( "a1_v_a2_v_a3_F", "a1_v_a2_v_a3_p", "a1_v_a2_v_a3_fdr",
+                "a1_v_a2_t","a1_v_a2_p", "a1_v_a2_fdr", 
+                "a1_v_a3_t","a1_v_a3_p", "a1_v_a3_fdr", 
+                "a2_v_a3_t","a2_v_a3_p", "a2_v_a3_fdr", 
+                "a1_v_a2_d", "a1_v_a3_d", "a2_v_a3_d")
+output_rows = c("age", "fiq", "assq", "rbs", "scq", "srs")
+
+output_res = data.frame(matrix(nrow = length(output_rows), ncol = length(output_cols)))
+colnames(output_res) = output_cols
+rownames(output_res) = output_rows
+```
+
+### Compare consistent vs inconsistent subtypes on pheno data
+```{r, warning=FALSE, message=FALSE}
+
+# Run analyses
+# age
+lm_age = lm(form2use_age, rs_data)
+aov_res_age = anova(lm_age)
+#ptt_age = pairwise.t.test(rs_data$age, rs_data$subtype, p.adj = "fdr")
+
+a1_v_a2_age = t.test(rs_data[rs_data$subtype == "autism1", "age"], rs_data[rs_data$subtype == "autism2", "age"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a3_age = t.test(rs_data[rs_data$subtype == "autism1", "age"], rs_data[rs_data$subtype == "autism3", "age"], alternative = "two.sided", var.equal = FALSE)
+a2_v_a3_age = t.test(rs_data[rs_data$subtype == "autism2", "age"], rs_data[rs_data$subtype == "autism3", "age"], alternative = "two.sided", var.equal = FALSE)
+
+a1_v_a2_age_d = cohens_d(rs_data[rs_data$subtype == "autism1",]$age, rs_data[rs_data$subtype == "autism2",]$age)
+a1_v_a3_age_d = cohens_d(rs_data[rs_data$subtype == "autism1",]$age, rs_data[rs_data$subtype == "autism3",]$age)
+a2_v_a3_age_d = cohens_d(rs_data[rs_data$subtype == "autism2",]$age, rs_data[rs_data$subtype == "autism3",]$age)
+
+# fiq
+rs_data_fiq = rs_data[!is.na(rs_data$fiq),]
+lm_fiq = lm(form2use_fiq, rs_data_fiq)
+aov_res_fiq = anova(lm_fiq)
+#ptt_fiq = pairwise.t.test(rs_data_fiq$fiq, rs_data_fiq$subtype, p.adj = "fdr")
+
+a1_v_a2_fiq = t.test(rs_data_fiq[rs_data_fiq$subtype == "autism1", "fiq"], rs_data_fiq[rs_data_fiq$subtype == "autism2", "fiq"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a3_fiq = t.test(rs_data_fiq[rs_data_fiq$subtype == "autism1", "fiq"], rs_data_fiq[rs_data_fiq$subtype == "autism3", "fiq"], alternative = "two.sided", var.equal = FALSE)
+a2_v_a3_fiq = t.test(rs_data_fiq[rs_data_fiq$subtype == "autism2", "fiq"], rs_data_fiq[rs_data_fiq$subtype == "autism3", "fiq"], alternative = "two.sided", var.equal = FALSE)
+
+a1_v_a2_fiq_d = cohens_d(rs_data_fiq[rs_data_fiq$subtype == "autism1",]$fiq, rs_data_fiq[rs_data_fiq$subtype == "autism2",]$fiq)
+a1_v_a3_fiq_d = cohens_d(rs_data_fiq[rs_data_fiq$subtype == "autism1",]$fiq, rs_data_fiq[rs_data_fiq$subtype == "autism3",]$fiq)
+a2_v_a3_fiq_d = cohens_d(rs_data_fiq[rs_data_fiq$subtype == "autism2",]$fiq, rs_data_fiq[rs_data_fiq$subtype == "autism3",]$fiq)
+
+# assq
+rs_data_assq = rs_data[!is.na(rs_data$assq_total),]
+lm_assq = lm(form2use_assq, rs_data_assq)
+aov_res_assq = anova(lm_assq)
+#ptt_assq = pairwise.t.test(rs_data_assq$assq_total, rs_data_assq$subtype, p.adj = "fdr")
+
+a1_v_a2_assq = t.test(rs_data_assq[rs_data_assq$subtype == "autism1", "assq_total"], rs_data_assq[rs_data_assq$subtype == "autism2", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a3_assq = t.test(rs_data_assq[rs_data_assq$subtype == "autism1", "assq_total"], rs_data_assq[rs_data_assq$subtype == "autism3", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+a2_v_a3_assq = t.test(rs_data_assq[rs_data_assq$subtype == "autism2", "assq_total"], rs_data_assq[rs_data_assq$subtype == "autism3", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+
+a1_v_a2_assq_d = cohens_d(rs_data_assq[rs_data_assq$subtype == "autism1",]$assq_total, rs_data_assq[rs_data_assq$subtype == "autism2",]$assq_total)
+a1_v_a3_assq_d = cohens_d(rs_data_assq[rs_data_assq$subtype == "autism1",]$assq_total, rs_data_assq[rs_data_assq$subtype == "autism3",]$assq_total)
+a2_v_a3_assq_d = cohens_d(rs_data_assq[rs_data_assq$subtype == "autism2",]$assq_total, rs_data_assq[rs_data_assq$subtype == "autism3",]$assq_total)
+
+
+# rbs
+rs_data_rbs = rs_data[!is.na(rs_data$rbs_total),]
+lm_rbs = lm(form2use_rbs, rs_data_rbs)
+aov_res_rbs = anova(lm_rbs)
+#ptt_rbs = pairwise.t.test(rs_data_rbs$rbs_total, rs_data_rbs$subtype, p.adj = "fdr")
+
+a1_v_a2_rbs = t.test(rs_data_rbs[rs_data_rbs$subtype == "autism1", "rbs_total"], rs_data_rbs[rs_data_rbs$subtype == "autism2", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a3_rbs = t.test(rs_data_rbs[rs_data_rbs$subtype == "autism1", "rbs_total"], rs_data_rbs[rs_data_rbs$subtype == "autism3", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+a2_v_a3_rbs = t.test(rs_data_rbs[rs_data_rbs$subtype == "autism2", "rbs_total"], rs_data_rbs[rs_data_rbs$subtype == "autism3", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+
+a1_v_a2_rbs_d = cohens_d(rs_data_rbs[rs_data_rbs$subtype == "autism1",]$rbs_total, rs_data_rbs[rs_data_rbs$subtype == "autism2",]$rbs_total)
+a1_v_a3_rbs_d = cohens_d(rs_data_rbs[rs_data_rbs$subtype == "autism1",]$rbs_total, rs_data_rbs[rs_data_rbs$subtype == "autism3",]$rbs_total)
+a2_v_a3_rbs_d = cohens_d(rs_data_rbs[rs_data_rbs$subtype == "autism2",]$rbs_total, rs_data_rbs[rs_data_rbs$subtype == "autism3",]$rbs_total)
+
+
+# scq
+rs_data_scq = rs_data[!is.na(rs_data$scq_total),]
+lm_scq = lm(form2use_scq, rs_data_scq)
+aov_res_scq = anova(lm_scq)
+#ptt_scq = pairwise.t.test(rs_data_scq$scq_total, rs_data_scq$subtype, p.adj = "fdr")
+
+a1_v_a2_scq = t.test(rs_data_scq[rs_data_scq$subtype == "autism1", "scq_total"], rs_data_scq[rs_data_scq$subtype == "autism2", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a3_scq = t.test(rs_data_scq[rs_data_scq$subtype == "autism1", "scq_total"], rs_data_scq[rs_data_scq$subtype == "autism3", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+a2_v_a3_scq = t.test(rs_data_scq[rs_data_scq$subtype == "autism2", "scq_total"], rs_data_scq[rs_data_scq$subtype == "autism3", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+
+a1_v_a2_scq_d = cohens_d(rs_data_scq[rs_data_scq$subtype == "autism1",]$scq_total, rs_data_scq[rs_data_scq$subtype == "autism2",]$scq_total)
+a1_v_a3_scq_d = cohens_d(rs_data_scq[rs_data_scq$subtype == "autism1",]$scq_total, rs_data_scq[rs_data_scq$subtype == "autism3",]$scq_total)
+a2_v_a3_scq_d = cohens_d(rs_data_scq[rs_data_scq$subtype == "autism2",]$scq_total, rs_data_scq[rs_data_scq$subtype == "autism3",]$scq_total)
+
+
+# srs
+rs_data_srs = rs_data[!is.na(rs_data$srs_total_T),]
+lm_srs = lm(form2use_srs, rs_data_srs)
+aov_res_srs = anova(lm_srs)
+#ptt_srs = pairwise.t.test(rs_data_srs$srs_total_T, rs_data_srs$subtype, p.adj = "fdr")
+
+a1_v_a2_srs = t.test(rs_data_srs[rs_data_srs$subtype == "autism1", "srs_total_T"], rs_data_srs[rs_data_srs$subtype == "autism2", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a3_srs = t.test(rs_data_srs[rs_data_srs$subtype == "autism1", "srs_total_T"], rs_data_srs[rs_data_srs$subtype == "autism3", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+a2_v_a3_srs = t.test(rs_data_srs[rs_data_srs$subtype == "autism2", "srs_total_T"], rs_data_srs[rs_data_srs$subtype == "autism3", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+
+a1_v_a2_srs_d = cohens_d(rs_data_srs[rs_data_srs$subtype == "autism1",]$srs_total_T, rs_data_srs[rs_data_srs$subtype == "autism2",]$srs_total_T)
+a1_v_a3_srs_d = cohens_d(rs_data_srs[rs_data_srs$subtype == "autism1",]$srs_total_T, rs_data_srs[rs_data_srs$subtype == "autism3",]$srs_total_T)
+a2_v_a3_srs_d = cohens_d(rs_data_srs[rs_data_srs$subtype == "autism2",]$srs_total_T, rs_data_srs[rs_data_srs$subtype == "autism3",]$srs_total_T)
+```
+
+# store and save
+```{r, warning=FALSE, message=FALSE}
+## Save results
+# age
+output_res["age", "a1_v_a2_v_a3_F"] = aov_res_age["subtype", "F value"]
+output_res["age", "a1_v_a2_v_a3_p"] = aov_res_age["subtype", "Pr(>F)"]
+
+output_res["age", "a1_v_a2_t"] = a1_v_a2_age$statistic[["t"]]
+output_res["age", "a1_v_a2_p"] = a1_v_a2_age$p.value
+
+output_res["age", "a1_v_a3_t"] = a1_v_a3_age$statistic[["t"]]
+output_res["age", "a1_v_a3_p"] = a1_v_a3_age$p.value
+
+output_res["age", "a2_v_a3_t"] = a2_v_a3_age$statistic[["t"]]
+output_res["age", "a2_v_a3_p"] = a2_v_a3_age$p.value
+
+output_res["age", "a1_v_a2_d"] = a1_v_a2_age_d
+output_res["age", "a1_v_a3_d"] = a1_v_a3_age_d
+output_res["age", "a2_v_a3_d"] = a2_v_a3_age_d
+
+# fiq
+output_res["fiq", "a1_v_a2_v_a3_F"] = aov_res_fiq["subtype", "F value"]
+output_res["fiq", "a1_v_a2_v_a3_p"] = aov_res_fiq["subtype", "Pr(>F)"]
+
+output_res["fiq", "a1_v_a2_t"] = a1_v_a2_fiq$statistic[["t"]]
+output_res["fiq", "a1_v_a2_p"] = a1_v_a2_fiq$p.value
+
+output_res["fiq", "a1_v_a3_t"] = a1_v_a3_fiq$statistic[["t"]]
+output_res["fiq", "a1_v_a3_p"] = a1_v_a3_fiq$p.value
+
+output_res["fiq", "a2_v_a3_t"] = a2_v_a3_fiq$statistic[["t"]]
+output_res["fiq", "a2_v_a3_p"] = a2_v_a3_fiq$p.value
+
+output_res["fiq", "a1_v_a2_d"] = a1_v_a2_fiq_d
+output_res["fiq", "a1_v_a3_d"] = a1_v_a3_fiq_d
+output_res["fiq", "a2_v_a3_d"] = a2_v_a3_fiq_d
+
+# assq
+output_res["assq", "a1_v_a2_v_a3_F"] = aov_res_assq["subtype", "F value"]
+output_res["assq", "a1_v_a2_v_a3_p"] = aov_res_assq["subtype", "Pr(>F)"]
+
+output_res["assq", "a1_v_a2_t"] = a1_v_a2_assq$statistic[["t"]]
+output_res["assq", "a1_v_a2_p"] = a1_v_a2_assq$p.value
+
+output_res["assq", "a1_v_a3_t"] = a1_v_a3_assq$statistic[["t"]]
+output_res["assq", "a1_v_a3_p"] = a1_v_a3_assq$p.value
+
+output_res["assq", "a2_v_a3_t"] = a2_v_a3_assq$statistic[["t"]]
+output_res["assq", "a2_v_a3_p"] = a2_v_a3_assq$p.value
+
+output_res["assq", "a1_v_a2_d"] = a1_v_a2_assq_d
+output_res["assq", "a1_v_a3_d"] = a1_v_a3_assq_d
+output_res["assq", "a2_v_a3_d"] = a2_v_a3_assq_d
+
+# rbs
+output_res["rbs", "a1_v_a2_v_a3_F"] = aov_res_rbs["subtype", "F value"]
+output_res["rbs", "a1_v_a2_v_a3_p"] = aov_res_rbs["subtype", "Pr(>F)"]
+
+output_res["rbs", "a1_v_a2_t"] = a1_v_a2_rbs$statistic[["t"]]
+output_res["rbs", "a1_v_a2_p"] = a1_v_a2_rbs$p.value
+
+output_res["rbs", "a1_v_a3_t"] = a1_v_a3_rbs$statistic[["t"]]
+output_res["rbs", "a1_v_a3_p"] = a1_v_a3_rbs$p.value
+
+output_res["rbs", "a2_v_a3_t"] = a2_v_a3_rbs$statistic[["t"]]
+output_res["rbs", "a2_v_a3_p"] = a2_v_a3_rbs$p.value
+
+output_res["rbs", "a1_v_a2_d"] = a1_v_a2_rbs_d
+output_res["rbs", "a1_v_a3_d"] = a1_v_a3_rbs_d
+output_res["rbs", "a2_v_a3_d"] = a2_v_a3_rbs_d
+
+# scq
+output_res["scq", "a1_v_a2_v_a3_F"] = aov_res_scq["subtype", "F value"]
+output_res["scq", "a1_v_a2_v_a3_p"] = aov_res_scq["subtype", "Pr(>F)"]
+
+output_res["scq", "a1_v_a2_t"] = a1_v_a2_scq$statistic[["t"]]
+output_res["scq", "a1_v_a2_p"] = a1_v_a2_scq$p.value
+
+output_res["scq", "a1_v_a3_t"] = a1_v_a3_scq$statistic[["t"]]
+output_res["scq", "a1_v_a3_p"] = a1_v_a3_scq$p.value
+
+output_res["scq", "a2_v_a3_t"] = a2_v_a3_scq$statistic[["t"]]
+output_res["scq", "a2_v_a3_p"] = a2_v_a3_scq$p.value
+
+output_res["scq", "a1_v_a2_d"] = a1_v_a2_scq_d
+output_res["scq", "a1_v_a3_d"] = a1_v_a3_scq_d
+output_res["scq", "a2_v_a3_d"] = a2_v_a3_scq_d
+
+# srs
+output_res["srs", "a1_v_a2_v_a3_F"] = aov_res_srs["subtype", "F value"]
+output_res["srs", "a1_v_a2_v_a3_p"] = aov_res_srs["subtype", "Pr(>F)"]
+
+output_res["srs", "a1_v_a2_t"] = a1_v_a2_srs$statistic[["t"]]
+output_res["srs", "a1_v_a2_p"] = a1_v_a2_srs$p.value
+
+output_res["srs", "a1_v_a3_t"] = a1_v_a3_srs$statistic[["t"]]
+output_res["srs", "a1_v_a3_p"] = a1_v_a3_srs$p.value
+
+output_res["srs", "a2_v_a3_t"] = a2_v_a3_srs$statistic[["t"]]
+output_res["srs", "a2_v_a3_p"] = a2_v_a3_srs$p.value
+
+output_res["srs", "a1_v_a2_d"] = a1_v_a2_srs_d
+output_res["srs", "a1_v_a3_d"] = a1_v_a3_srs_d
+output_res["srs", "a2_v_a3_d"] = a2_v_a3_srs_d
+
+# fdr correction
+output_res[, "a1_v_a2_v_a3_fdr"] = p.adjust(output_res[,"a1_v_a2_v_a3_p"], method = "fdr")
+output_res[,"a1_v_a2_fdr"] = p.adjust(output_res[,"a1_v_a2_p"], method = "fdr") 
+output_res[,"a1_v_a3_fdr"] = p.adjust(output_res[,"a1_v_a3_p"], method = "fdr") 
+output_res[,"a2_v_a3_fdr"] = p.adjust(output_res[,"a2_v_a3_p"], method = "fdr") 
+
+# save to file
+write.csv(output_res, file = file.path(resultpath,"02_adjH_subtype_consistency_lm.csv"))
+
+output_res
+```
+
+### Plot
+```{r, warning=FALSE, message=FALSE}
+
+rs_data_2plot = tidy_data %>% 
+  filter(dx1_short == "ASD" & sex == "Male") %>% 
+  select(subid, rsopen_subgroup_glob, rsclosed_subgroup_glob) %>%
+  distinct()
+
+
+ggplot(data = rs_data_2plot,
+       aes(axis1 = rsopen_subgroup_glob, axis2 = rsclosed_subgroup_glob, y = 1)) +
+  geom_flow(aes(fill = factor(rsopen_subgroup_glob)), width = 1/12) +
+  geom_stratum(aes(fill = factor(rsopen_subgroup_glob)), width = 1/12) +
+  geom_text(stat = "stratum", aes(label = after_stat(stratum)),
+            reverse = FALSE, size = 4) +
+  scale_x_discrete(limits = c("Subtype Eyes Open", "Subtype Eyes Closed"),
+                   expand = c(.085, .085)) +
+  scale_fill_manual(values = c("darkseagreen4", "darkseagreen3"), breaks = c("1", "2"), 
+                    labels = c("1", "2"), na.value = c("darkseagreen3", "darkseagreen4")) +
+  theme_minimal() +
+  theme(legend.position = "none",
+        title = element_text(size = 14),
+        axis.title.y = element_blank(),
+        axis.text.y = element_blank(), 
+        axis.text.x = element_text(size = 12),
+        aspect.ratio = .9) +
+  ggtitle("Subtype consistency across resting state condition")
+
+ggsave(filename = file.path(plotpath,"02_adjH_subtype_consistency_alluvialplot.pdf"))
+
+```
+
+
+

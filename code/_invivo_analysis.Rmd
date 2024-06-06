@@ -1,0 +1,613 @@
+---
+title: "Analysis Final"
+author: "Michael Lombardo"
+date: "12/04/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Libraries and paths
+
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse","ggeasy","patchwork","lmerTest","emmeans","reshape2")
+
+plotdir = here("plots")
+fontSize = 16
+
+baseline_end = 15
+transition_end = 35
+
+# cols2use = c("#619cff","#156cff")
+cols2use = c("#619cff","#ffa500")
+```
+
+# Functions to use later
+
+```{r, warning=FALSE, message=FALSE}
+# functions to use for plotting
+make_timeplot <- function(data4plot, x_var, y_var, grp_var,
+                          baseline_end=15, transition_end=35,
+                          yLabel,title2use,fontSize=16){
+  
+  p = ggplot(data = data4plot,
+           aes_string(x = x_var, y = y_var, group = grp_var)) +
+  facet_grid(. ~ grp) 
+  
+  p = p + geom_smooth(se = FALSE,
+                    colour='gray75',
+                    alpha=0.1)
+  
+  p = p + geom_smooth(se=TRUE, aes(group = interaction(grp,condition),
+                                 colour = condition,
+                                 fill = condition),
+                    size=3)
+  
+  p = p + geom_vline(xintercept = (baseline_end)) +
+    geom_vline(xintercept = transition_end) +
+    geom_hline(yintercept = 0) +
+    xlab("Time Window") + 
+    ylab(sprintf("Baseline Normalized %s",yLabel)) +
+    guides(colour="none", fill="none") +
+    ggtitle(title2use) + easy_center_title() +
+    theme_bw() + 
+    theme(plot.title = element_text(hjust = 0.5, size=fontSize),
+      strip.text.y = element_text(size=fontSize),
+      axis.text.x = element_text(size=fontSize),
+      axis.text.y = element_text(size=fontSize-2),
+      axis.title.x = element_text(size=fontSize),
+      axis.title.y = element_text(size=fontSize),
+      strip.text = element_text(size = fontSize))
+  
+  return(p)
+  
+} # make_timeplot
+
+# make_scatterplot
+make_scatterplot <- function(data4plot, x_var, y_var, grp_var,
+                             cols2use,xLabel,yLabel,title2use, dotSize=3){
+  p = ggplot(data = data4plot, aes_string(x = x_var, y = y_var, colour=grp_var)) + 
+  geom_point(size = dotSize) + 
+  geom_smooth(method=lm, se=FALSE) + 
+  scale_colour_manual(values=cols2use) + 
+  xlab(sprintf("Baseline Normalized %s",xLabel)) +
+  ylab(sprintf("Baseline Normalized %s",yLabel)) +
+  ggtitle(title2use) + easy_center_title() +
+  guides(colour="none") +
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5, size=fontSize),
+    strip.text.y = element_text(size=fontSize),
+    axis.text.x = element_text(size=fontSize),
+    axis.text.y = element_text(size=fontSize-2),
+    axis.title.x = element_text(size=fontSize),
+    axis.title.y = element_text(size=fontSize),
+    strip.text = element_text(size = fontSize))
+
+  return(p)
+} # function make_scatterplot
+
+# make_blankplot
+make_blankplot <- function(exp, dtype="H", lineSize = 3,ylimits =c(-6,6),fontSize = 16){
+  
+  data_FR = data.frame(time = c(0,15,16,35,36,60, 0,15,16,35,36,60),
+                    condition = c("baseline","baseline",
+                                  "transition","transition",
+                                  "treatment","treatment",
+                                  "baseline","baseline",
+                                  "transition","transition",
+                                  "treatment","treatment"),
+                    grp = c("DREADD","DREADD","DREADD","DREADD","DREADD","DREADD",
+                            "SHAM","SHAM","SHAM","SHAM","SHAM","SHAM"))
+  data_H = data_FR
+  
+  if (dtype=="H"){
+    
+    if (exp=="camk"){
+      data_FR$score = c(0,0,0,3,3,3, 0,0,0,0,0,0)
+      data_H$score = c(0,0,0,-3,-3,-3, 0,0,0,0,0,0)
+      title2use = "CamkII-hM3D(Gq)"
+    }else if (exp=="hm4di"){
+      data_FR$score = c(0,0,0,-3,-3,-3, 0,0,0,0,0,0)
+      data_H$score =  c(0,0,0,3,3,3, 0,0,0,0,0,0)
+      title2use = "hM4Di"
+    }
+    data_H$facet_var = "H"
+    data_FR$facet_var = "Firing Rate"
+    
+  } else{
+    
+    if (exp=="camk"){
+      data_H$score = c(0,0,0,3,3,3, 0,0,0,0,0,0)
+      data_FR$score = c(0,0,0,3,3,3, 0,0,0,0,0,0)
+      title2use = "CamkII-hM3D(Gq)"
+    }else if (exp=="hm4di"){
+      data_H$score = c(0,0,0,-3,-3,-3, 0,0,0,0,0,0)
+      data_FR$score =  c(0,0,0,-3,-3,-3, 0,0,0,0,0,0)
+      title2use = "hM4Di"
+    }
+    data_H$facet_var = dtype
+    data_FR$facet_var = "Firing Rate"
+
+  }
+  
+  data = rbind(data_FR,data_H)
+  data$facet_var = factor(data$facet_var, levels = c("Firing Rate", dtype))
+  data$grp = factor(data$grp, levels = c("DREADD","SHAM"))
+  data$condition = factor(data$condition, levels = c("baseline","transition","treatment"))
+  
+  p = ggplot(data = data, aes(x = time, y = score, colour = condition)) + facet_grid(. ~ facet_var) +
+      geom_hline(yintercept = 0) +
+    geom_line(aes(linetype=grp),size = lineSize) + 
+    scale_linetype_manual(values = c("solid", "dashed")) +
+    # xlim(xlimits[1],xlimits[2]) +
+    scale_y_continuous(limits = ylimits) +
+    xlab("Time Window") + ylab("Baseline Normalized Value") +
+    geom_vline(xintercept = 15) +
+    geom_vline(xintercept = 35) +
+    guides(colour="none", linetype="none") +
+    ggtitle(title2use) + easy_center_title() +
+    theme_bw() +   
+    theme(plot.title = element_text(hjust = 0.5, size=fontSize),
+      strip.text.y = element_text(size=fontSize),
+      axis.text.x = element_text(size=fontSize),
+      axis.text.y = element_text(size=fontSize-2),
+      axis.title.x = element_text(size=fontSize),
+      axis.title.y = element_text(size=fontSize),
+      strip.text = element_text(size = fontSize))
+  
+  return(p)
+}
+
+# run_lme
+run_lme <- function(data, dv_var){
+  
+  # formula
+  form2use = as.formula(sprintf("%s ~ grp*condition + (1|id)", dv_var))
+  
+  # run the model
+  mod2use = lmer(formula = form2use, data = data)
+  aov_tab = anova(mod2use)
+
+  pairwise_res = emmeans(mod2use, pairwise ~ grp*condition)
+  
+  result = list(model = mod2use,
+                aov_tab = aov_tab, 
+                pairwise_res = pairwise_res)
+  return(result)
+  
+} # function run_lme
+```
+
+
+# Theoretical plots
+
+## CamkII-hM3D(Gq)
+
+```{r, warning=FALSE, message=FALSE}
+camk_plot = make_blankplot(exp = "camk", dtype = "H", fontSize=24)
+ggsave(filename = file.path(plotdir,"camk_H_theoretical_prediction.pdf"), plot = camk_plot)
+camk_plot
+
+camk_plot = make_blankplot(exp = "camk", dtype = "1/f slope", fontSize=24)
+ggsave(filename = file.path(plotdir,"camk_slope_theoretical_prediction.pdf"), plot = camk_plot)
+camk_plot
+
+camk_plot = make_blankplot(exp = "camk", dtype = "Broadband Power", fontSize=24)
+ggsave(filename = file.path(plotdir,"camk_power_theoretical_prediction.pdf"), plot = camk_plot)
+camk_plot
+```
+
+## hM4Di
+
+```{r, warning=FALSE, message=FALSE}
+hm4di_plot = make_blankplot(exp = "hm4di", dtype = "H", fontSize=24)
+ggsave(filename = file.path(plotdir,"hm4di_H_theoretical_prediction.pdf"), plot = hm4di_plot)
+hm4di_plot
+
+hm4di_plot = make_blankplot(exp = "hm4di", dtype = "1/f slope", fontSize=24)
+ggsave(filename = file.path(plotdir,"hm4di_slope_theoretical_prediction.pdf"), plot = hm4di_plot)
+hm4di_plot
+
+hm4di_plot = make_blankplot(exp = "hm4di", dtype = "Broadband Power", fontSize=24)
+ggsave(filename = file.path(plotdir,"hm4di_power_theoretical_prediction.pdf"), plot = hm4di_plot)
+hm4di_plot
+```
+
+# CamkII-hM3D(Gq) Firing Rate
+
+```{r, warning=FALSE, message=FALSE}
+data_file = here("experimental_data","camk_databasenorm.csv")
+data = read.csv(data_file)
+data$grp[data$grp=="exp"] = "DREADD"
+data$grp[data$grp=="ctrl"] = "SHAM"
+data$grp = factor(data$grp)
+data2use = data %>% 
+  filter(condition=="treatment")
+
+# Firing Rate
+p0 = make_timeplot(data4plot=data, x_var="time", y_var="r_basenorm", grp_var="id",
+                   yLabel="Firing Rate",title2use="CamkII-hM3D(Gq)")
+ggsave(file.path(plotdir,"camk_FR_timeplot.pdf"), plot = p0)
+p0
+
+# run LME
+res = run_lme(data = data, dv_var = "r_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+```
+
+# CamkII-hM3D(Gq) Hurst exponent
+
+```{r, warning=FALSE, message=FALSE}
+# H
+p1 = make_timeplot(data4plot=data, x_var="time", y_var="H_basenorm", grp_var="id",
+                   yLabel="H",title2use="CamkII-hM3D(Gq)")
+ggsave(file.path(plotdir,"camk_H_timeplot.pdf"), plot = p1)
+p1
+
+# run LME
+res = run_lme(data = data, dv_var = "H_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+
+p2 = make_scatterplot(data4plot = data2use,
+                      x_var = "r_basenorm",
+                      y_var = "H_basenorm",
+                      grp_var = "grp",
+                      cols2use = cols2use, 
+                      xLabel = "Firing Rate",
+                      yLabel = "H",
+                      title2use="CamkII-hM3D(Gq)")
+ggsave(file.path(plotdir,"camk_H_scatterplot.pdf"), plot = p2)
+p2
+
+res = cor.test(data2use$r_basenorm, data2use$H_basenorm)
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="DREADD"], 
+         data2use$H_basenorm[data2use$grp=="DREADD"])
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="SHAM"], 
+         data2use$H_basenorm[data2use$grp=="SHAM"])
+res
+res$p.value
+```
+
+# CamkII-hM3D(Gq) 1/f slope
+
+```{r, warning=FALSE, message=FALSE}
+# 1/f slope
+p3 = make_timeplot(data4plot=data, x_var="time", y_var="slope_basenorm", grp_var="id",
+                   yLabel="1/f slope",title2use="CamkII-hM3D(Gq)")
+ggsave(file.path(plotdir,"camk_slope_timeplot.pdf"), plot = p3)
+p3
+
+# run LME
+res = run_lme(data = data, dv_var = "slope_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+
+p4 = make_scatterplot(data4plot = data2use,
+                      x_var = "r_basenorm",
+                      y_var = "slope_basenorm",
+                      grp_var = "grp",
+                      cols2use = cols2use, 
+                      xLabel = "Firing Rate",
+                      yLabel = "1/f slope",
+                      title2use="CamkII-hM3D(Gq)")
+ggsave(file.path(plotdir,"camk_slope_scatterplot.pdf"), plot = p4)
+p4
+
+res = cor.test(data2use$r_basenorm, data2use$slope_basenorm)
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="DREADD"], 
+         data2use$slope_basenorm[data2use$grp=="DREADD"])
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="SHAM"], 
+         data2use$slope_basenorm[data2use$grp=="SHAM"])
+res
+res$p.value
+```
+
+# CamkII-hM3D(Gq) Broadband power
+
+```{r, warning=FALSE, message=FALSE}
+# broadband power
+p5 = make_timeplot(data4plot=data, x_var="time", y_var="isp_basenorm", grp_var="id",
+                   yLabel="Power",title2use="CamkII-hM3D(Gq)")
+ggsave(file.path(plotdir,"camk_power_timeplot.pdf"), plot = p5)
+p5
+
+# run LME
+res = run_lme(data = data, dv_var = "isp_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+
+p6 = make_scatterplot(data4plot = data2use,
+                      x_var = "r_basenorm",
+                      y_var = "isp_basenorm",
+                      grp_var = "grp",
+                      cols2use = cols2use, 
+                      xLabel = "Firing Rate",
+                      yLabel = "Power",
+                      title2use="CamkII-hM3D(Gq)")
+ggsave(file.path(plotdir,"camk_power_scatterplot.pdf"), plot = p6)
+p6
+
+res = cor.test(data2use$r_basenorm, data2use$isp_basenorm)
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="DREADD"], 
+         data2use$isp_basenorm[data2use$grp=="DREADD"])
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="SHAM"], 
+         data2use$isp_basenorm[data2use$grp=="SHAM"])
+res
+res$p.value
+```
+
+# hM4Di Firing Rate
+
+```{r, warning=FALSE, message=FALSE}
+data_file = here("experimental_data","hm4d_databasenorm.csv")
+data = read.csv(data_file)
+data$grp[data$grp=="exp"] = "DREADD"
+data$grp[data$grp=="ctrl"] = "SHAM"
+data$grp = factor(data$grp)
+data2use = data %>% 
+  filter(condition=="treatment")
+
+# Firing Rate
+p0 = make_timeplot(data4plot=data, x_var="time", y_var="r_basenorm", grp_var="id",
+                   yLabel="Firing Rate",title2use="hM4Di")
+ggsave(file.path(plotdir,"hM4Di_FR_timeplot.pdf"), plot = p0)
+p0
+
+# run LME
+res = run_lme(data = data, dv_var = "r_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+```
+
+# hM4Di Hurst exponent
+
+```{r, warning=FALSE, message=FALSE}
+# H
+p1 = make_timeplot(data4plot=data, x_var="time", y_var="H_basenorm", grp_var="id",
+                   yLabel="H",title2use="hM4Di")
+ggsave(file.path(plotdir,"hM4Di_H_timeplot.pdf"), plot = p1)
+p1
+
+# run LME
+res = run_lme(data = data, dv_var = "H_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+
+p2 = make_scatterplot(data4plot = data2use,
+                      x_var = "r_basenorm",
+                      y_var = "H_basenorm",
+                      grp_var = "grp",
+                      cols2use = cols2use, 
+                      xLabel = "Firing Rate",
+                      yLabel = "H",
+                      title2use="hM4Di")
+ggsave(file.path(plotdir,"hM4Di_H_scatterplot.pdf"), plot = p2)
+p2
+
+res = cor.test(data2use$r_basenorm, data2use$H_basenorm)
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="DREADD"], 
+         data2use$H_basenorm[data2use$grp=="DREADD"])
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="SHAM"], 
+         data2use$H_basenorm[data2use$grp=="SHAM"])
+res
+res$p.value
+```
+
+# hM4Di 1/f slope
+
+```{r, warning=FALSE, message=FALSE}
+# 1/f slope
+p3 = make_timeplot(data4plot=data, x_var="time", y_var="slope_basenorm", grp_var="id",
+                   yLabel="1/f slope",title2use="hM4Di")
+ggsave(file.path(plotdir,"hM4Di_slope_timeplot.pdf"), plot = p3)
+p3
+
+# run LME
+res = run_lme(data = data, dv_var = "slope_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+
+p4 = make_scatterplot(data4plot = data2use,
+                      x_var = "r_basenorm",
+                      y_var = "slope_basenorm",
+                      grp_var = "grp",
+                      cols2use = cols2use, 
+                      xLabel = "Firing Rate",
+                      yLabel = "1/f slope",
+                      title2use="hM4Di")
+ggsave(file.path(plotdir,"hM4Di_slope_scatterplot.pdf"), plot = p4)
+p4
+
+res = cor.test(data2use$r_basenorm, data2use$slope_basenorm)
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="DREADD"], 
+         data2use$slope_basenorm[data2use$grp=="DREADD"])
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="SHAM"], 
+         data2use$slope_basenorm[data2use$grp=="SHAM"])
+res
+res$p.value
+```
+
+# hM4Di Broadband power
+
+```{r, warning=FALSE, message=FALSE}
+# broadband power
+p5 = make_timeplot(data4plot=data, x_var="time", y_var="isp_basenorm", grp_var="id",
+                   yLabel="Power",title2use="hM4Di")
+ggsave(file.path(plotdir,"hM4Di_power_timeplot.pdf"), plot = p5)
+p5
+
+# run LME
+res = run_lme(data = data, dv_var = "isp_basenorm")
+res$aov_tab
+res$aov_tab[2,6]
+res$aov_tab[3,6]
+res$pairwise_res
+
+p6 = make_scatterplot(data4plot = data2use,
+                      x_var = "r_basenorm",
+                      y_var = "isp_basenorm",
+                      grp_var = "grp",
+                      cols2use = cols2use, 
+                      xLabel = "Firing Rate",
+                      yLabel = "Power",
+                      title2use="hM4Di")
+ggsave(file.path(plotdir,"hM4Di_power_scatterplot.pdf"), plot = p6)
+p6
+
+res = cor.test(data2use$r_basenorm, data2use$isp_basenorm)
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="DREADD"], 
+         data2use$isp_basenorm[data2use$grp=="DREADD"])
+res
+res$p.value
+
+res = cor.test(data2use$r_basenorm[data2use$grp=="SHAM"], 
+         data2use$isp_basenorm[data2use$grp=="SHAM"])
+res
+res$p.value
+```
+
+
+# Make figures of power spectrum
+
+```{r, warning=FALSE, message=FALSE}
+freq_data = read.csv(here("experimental_data","freq.csv"))
+freq_names = freq_data$colnames2use
+
+# CamkII=-hM3D(Gq)
+data_file = here("experimental_data","LFPspectra_xsub_camk.csv")
+data = read.csv(data_file)
+mean_data = data %>% filter(condition=="treatment")
+
+n1 = sum(mean_data$grp=="SHAM")
+data1 = data.frame(mean_spectrum_bn = colMeans(mean_data[mean_data$grp=="SHAM",freq_names]), grp = "SHAM", freq = freq_data$freq, se_spectrum_bn = (apply(mean_data[mean_data$grp=="SHAM",freq_names], 2, sd) / sqrt(n1)))
+
+n2 = sum(mean_data$grp=="DREADD")
+data2 = data.frame(mean_spectrum_bn = colMeans(mean_data[mean_data$grp=="DREADD",freq_names]), grp = "DREADD", freq = freq_data$freq, se_spectrum_bn = (apply(mean_data[mean_data$grp=="DREADD",freq_names], 2, sd) / sqrt(n2)))
+
+data2plot = rbind(data1,data2)
+data2plot$logFreq = log10(data2plot$freq)
+
+camk_pow_spec = ggplot(data = data2plot, 
+                       aes(x = logFreq,
+                           y = mean_spectrum_bn,
+                           colour=grp,
+                           fill=grp)) + 
+  geom_ribbon(aes(ymin = mean_spectrum_bn - se_spectrum_bn,
+                  ymax = mean_spectrum_bn + se_spectrum_bn), 
+              alpha = 0.2) + 
+  geom_line() + 
+  geom_hline(yintercept=0) +
+  xlab("Frequency (Hz)") + 
+  ylab("Baseline Normalized Power") + 
+  scale_x_continuous(labels = c(0.1, 1, 10, 100)) +
+  ggtitle("CamkII-hM3D(Gq)") + easy_center_title() +
+  easy_add_legend_title("Group") + easy_adjust_legend(to = "center") +
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5, size=fontSize),
+        strip.text.y = element_text(size=fontSize),
+        axis.text.x = element_text(size=fontSize),
+        axis.text.y = element_text(size=fontSize-2),
+        axis.title.x = element_text(size=fontSize),
+        axis.title.y = element_text(size=fontSize),
+        strip.text = element_text(size = fontSize))
+
+
+
+
+# hM4Di
+data_file = here("experimental_data","LFPspectra_xsub_hm4d.csv")
+data = read.csv(data_file)
+mean_data = data %>% filter(condition=="treatment")
+
+n1 = sum(mean_data$grp=="SHAM")
+data1 = data.frame(mean_spectrum_bn = colMeans(mean_data[mean_data$grp=="SHAM",freq_names]), grp = "SHAM", freq = freq_data$freq, se_spectrum_bn = (apply(mean_data[mean_data$grp=="SHAM",freq_names], 2, sd) / sqrt(n1)))
+
+n2 = sum(mean_data$grp=="DREADD")
+data2 = data.frame(mean_spectrum_bn = colMeans(mean_data[mean_data$grp=="DREADD",freq_names]), grp = "DREADD", freq = freq_data$freq, se_spectrum_bn = (apply(mean_data[mean_data$grp=="DREADD",freq_names], 2, sd) / sqrt(n2)))
+
+data2plot = rbind(data1,data2)
+data2plot$logFreq = log10(data2plot$freq)
+
+hm4di_pow_spec = ggplot(data = data2plot, 
+                       aes(x = logFreq,
+                           y = mean_spectrum_bn,
+                           colour=grp,
+                           fill=grp)) + 
+  geom_ribbon(aes(ymin = mean_spectrum_bn - se_spectrum_bn,
+                  ymax = mean_spectrum_bn + se_spectrum_bn), 
+              alpha = 0.2) + 
+  geom_line() + 
+  geom_hline(yintercept=0) +
+  xlab("Frequency (Hz)") + 
+  ylab("Baseline Normalized Power") + 
+  scale_x_continuous(labels = c(0.1, 1, 10, 100)) +
+  ggtitle("hM4Di") + easy_center_title() +
+  easy_add_legend_title("Group") + easy_adjust_legend(to = "center") +
+  theme_bw() + 
+  theme(plot.title = element_text(hjust = 0.5, size=fontSize),
+        strip.text.y = element_text(size=fontSize),
+        axis.text.x = element_text(size=fontSize),
+        axis.text.y = element_text(size=fontSize-2),
+        axis.title.x = element_text(size=fontSize),
+        axis.title.y = element_text(size=fontSize),
+        strip.text = element_text(size = fontSize))
+
+p_final = camk_pow_spec / hm4di_pow_spec + plot_layout(guides = "collect")
+ggsave(filename = file.path(plotdir, "dreadd_pow_spec.pdf"), 
+       plot = p_final,
+       width = 8,height=8)
+p_final
+```
+

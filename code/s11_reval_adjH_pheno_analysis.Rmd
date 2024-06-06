@@ -1,0 +1,840 @@
+---
+title: "CMI H reval clusters males pheno - resting state"
+author: "NatashaBertelsen"
+date: "Oct/01/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load libraries
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse","report","lmerTest", "stringr", "ggdist", "ggpubr")
+source(here("code","cmi_utils.R"))
+```
+
+### Load in data
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+tidypath = here("data","tidy")
+plotpath = here("plots", "reval", "global")
+rsopen_plotpath = file.path(plotpath, "rsopen")
+rsclosed_plotpath = file.path(plotpath, "rsclosed")
+resultpath = here("results", "reval", "global")
+
+tidy_data = read.csv(file.path(tidypath,"tidy_adjH_revalsubgroups_global.csv"))
+```
+
+### Set color codes for plots
+```{r, warning=FALSE, message=FALSE}
+c2use_age =  c("darkorange", "darkorange3")
+c2use_fiq =  c( "mediumpurple1", "mediumpurple4")
+c2use_assq =  c("indianred1", "indianred4")
+c2use_rbs =  c("darkseagreen1", "darkseagreen4")
+c2use_scq =  c("lightgoldenrod1", "lightgoldenrod4")
+c2use_srs =  c("dodgerblue", "dodgerblue4")
+```
+
+### Set up formulae
+```{r, warning=FALSE, message=FALSE}
+form2use_age = as.formula("age ~ subtype")
+form2use_fiq = as.formula("fiq ~ subtype")
+form2use_srs = as.formula("srs_total_T ~ subtype")
+form2use_scq = as.formula("scq_total ~ subtype")
+form2use_rbs = as.formula("rbs_total ~ subtype")
+form2use_assq = as.formula("assq_total ~ subtype")
+
+# prep output dataframe
+output_cols = c("td_v_a1_v_a2_F", "td_v_a1_v_a2_p", "td_v_a1_v_a2_fdr",
+                "td_v_a1_t","td_v_a1_p", "td_v_a1_fdr", "td_v_a1_d",
+                "td_v_a2_t","td_v_a2_p", "td_v_a2_fdr", "td_v_a2_d",
+                "a1_v_a2_t","a1_v_a2_p", "a1_v_a2_fdr", "a1_v_a2_d"
+)
+
+output_rows = c("age", "fiq", "assq", "rbs", "scq", "srs"
+)
+
+output_res = data.frame(matrix(nrow = length(output_rows), ncol = length(output_cols)))
+colnames(output_res) = output_cols
+rownames(output_res) = output_rows
+```
+
+### Eyes Open
+```{r, warning=FALSE, message=FALSE}
+name2save = "rsopen"
+
+## Filter by condition and select variables of interest
+pheno_rseo = tidy_data %>%
+  filter(condition == "open" ) %>%
+  select(subid, dx, dx1_short, age,
+         rsopen_subgroup_glob,
+         wais_fiq,wasi_fiq,wisc_fiq,
+         assq_total,scq_total,rbs_total, srs_total_T) %>% 
+  distinct()
+
+# make a subtype and fiq variable from uniting different variables together
+dt4mod = pheno_rseo %>% 
+  unite(subtype, dx1_short, rsopen_subgroup_glob, na.rm = TRUE) %>%
+  unite(fiq, wais_fiq, wasi_fiq,wisc_fiq, na.rm = TRUE)
+dt4mod$fiq = as.numeric(dt4mod$fiq)
+  
+  
+  # relevel data for plotting
+  level_order <- c('TD', 'ASD_1', 'ASD_2') 
+  dt4mod$subtype = factor(dt4mod$subtype, levels = level_order,
+    labels = c("td", "a1", "a2"))
+
+# subtypes only df
+dt4mod_sbt = dt4mod %>%
+  filter(subtype != "td")
+
+## summarise data
+rseo_pheno_tbl = as.data.frame(dt4mod %>% 
+                             group_by(subtype) %>%
+                             summarise(N = n(),
+                                       mean_age = mean(age, na.rm = TRUE),
+                                       std_age = sd(age, na.rm = TRUE),
+                                       mean_fiq = mean(fiq, na.rm = TRUE),
+                                       std_fiq = sd(fiq, na.rm = TRUE),
+                                       mean_assq = mean(assq_total, na.rm = TRUE),
+                                       std_assq = sd(assq_total, na.rm = TRUE),
+                                       mean_rbs = mean(rbs_total, na.rm = TRUE),
+                                       std_rbs = sd(rbs_total, na.rm = TRUE),
+                                       mean_scq = mean(scq_total, na.rm = TRUE),
+                                       std_scq = sd(scq_total, na.rm = TRUE),
+                                       mean_srs = mean(srs_total_T, na.rm = TRUE),
+                                       std_srs = sd(srs_total_T, na.rm = TRUE))
+)
+                             
+rseo_pheno_tbl[,'condition'] = c(name2save, name2save, name2save)
+rseo_pheno_tbl = rseo_pheno_tbl %>% 
+  relocate("condition", .before = "subtype")
+
+
+## Run analyses
+# Run linear model with td a1 a2: age and fiq
+lm_age = lm(form2use_age, dt4mod)
+aov_res_age = anova(lm_age)
+#ptt_age = pairwise.t.test(dt4mod$age, dt4mod$subtype, p.adj = "fdr")
+
+td_v_a1_age = t.test(dt4mod[dt4mod$subtype == "td", "age"], dt4mod[dt4mod$subtype == "a1", "age"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_age = t.test(dt4mod[dt4mod$subtype == "td", "age"], dt4mod[dt4mod$subtype == "a2", "age"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_age = t.test(dt4mod[dt4mod$subtype == "a1", "age"], dt4mod[dt4mod$subtype == "a2", "age"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_age_d = cohens_d(dt4mod[dt4mod$subtype == "td",]$age, dt4mod[dt4mod$subtype == "a1",]$age)
+td_v_a2_age_d = cohens_d(dt4mod[dt4mod$subtype == "td",]$age, dt4mod[dt4mod$subtype == "a2",]$age)
+a1_v_a2_age_d = cohens_d(dt4mod[dt4mod$subtype == "a1",]$age, dt4mod[dt4mod$subtype == "a2",]$age)
+
+dt4mod_fiq = dt4mod[!is.na(dt4mod$fiq),]
+lm_fiq = lm(form2use_fiq, dt4mod_fiq)
+aov_res_fiq = anova(lm_fiq)
+#ptt_fiq = pairwise.t.test(dt4mod_fiq$fiq, dt4mod_fiq$subtype, p.adj = "fdr")
+
+td_v_a1_fiq = t.test(dt4mod_fiq[dt4mod_fiq$subtype == "td", "fiq"], dt4mod_fiq[dt4mod_fiq$subtype == "a1", "fiq"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_fiq = t.test(dt4mod_fiq[dt4mod_fiq$subtype == "td", "fiq"], dt4mod_fiq[dt4mod_fiq$subtype == "a2", "fiq"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_fiq = t.test(dt4mod_fiq[dt4mod_fiq$subtype == "a1", "fiq"], dt4mod_fiq[dt4mod_fiq$subtype == "a2", "fiq"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_fiq_d = cohens_d(dt4mod_fiq[dt4mod_fiq$subtype == "td",]$fiq, dt4mod_fiq[dt4mod_fiq$subtype == "a1",]$fiq)
+td_v_a2_fiq_d = cohens_d(dt4mod_fiq[dt4mod_fiq$subtype == "td",]$fiq, dt4mod_fiq[dt4mod_fiq$subtype == "a2",]$fiq)
+a1_v_a2_fiq_d = cohens_d(dt4mod_fiq[dt4mod_fiq$subtype == "a1",]$fiq, dt4mod_fiq[dt4mod_fiq$subtype == "a2",]$fiq)
+
+# assq 
+dt4mod_assq = dt4mod %>% 
+  filter(is.na(assq_total) == "FALSE")
+lm_assq = lm(form2use_assq, dt4mod_assq)
+aov_res_assq = anova(lm_assq)
+
+td_v_a1_assq = t.test(dt4mod_assq[dt4mod_assq$subtype == "td", "assq_total"], dt4mod_assq[dt4mod_assq$subtype == "a1", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_assq = t.test(dt4mod_assq[dt4mod_assq$subtype == "td", "assq_total"], dt4mod_assq[dt4mod_assq$subtype == "a2", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_assq = t.test(dt4mod_assq[dt4mod_assq$subtype == "a1", "assq_total"], dt4mod_assq[dt4mod_assq$subtype == "a2", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_assq_d = cohens_d(dt4mod_assq[dt4mod_assq$subtype == "td",]$assq_total, dt4mod_assq[dt4mod_assq$subtype == "a1",]$assq_total)
+td_v_a2_assq_d = cohens_d(dt4mod_assq[dt4mod_assq$subtype == "td",]$assq_total, dt4mod_assq[dt4mod_assq$subtype == "a2",]$assq_total)
+a1_v_a2_assq_d = cohens_d(dt4mod_assq[dt4mod_assq$subtype == "a1",]$assq_total, dt4mod_assq[dt4mod_assq$subtype == "a2",]$assq_total)
+
+
+# rbs
+dt4mod_rbs = dt4mod %>% 
+  filter(is.na(rbs_total) == "FALSE")
+lm_rbs = lm(form2use_rbs, dt4mod_rbs)
+aov_res_rbs = anova(lm_rbs)
+
+td_v_a1_rbs = t.test(dt4mod_rbs[dt4mod_rbs$subtype == "td", "rbs_total"], dt4mod_rbs[dt4mod_rbs$subtype == "a1", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_rbs = t.test(dt4mod_rbs[dt4mod_rbs$subtype == "td", "rbs_total"], dt4mod_rbs[dt4mod_rbs$subtype == "a2", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_rbs = t.test(dt4mod_rbs[dt4mod_rbs$subtype == "a1", "rbs_total"], dt4mod_rbs[dt4mod_rbs$subtype == "a2", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_rbs_d = cohens_d(dt4mod_rbs[dt4mod_rbs$subtype == "td",]$rbs_total, dt4mod_rbs[dt4mod_rbs$subtype == "a1",]$rbs_total)
+td_v_a2_rbs_d = cohens_d(dt4mod_rbs[dt4mod_rbs$subtype == "td",]$rbs_total, dt4mod_rbs[dt4mod_rbs$subtype == "a2",]$rbs_total)
+a1_v_a2_rbs_d = cohens_d(dt4mod_rbs[dt4mod_rbs$subtype == "a1",]$rbs_total, dt4mod_rbs[dt4mod_rbs$subtype == "a2",]$rbs_total)
+
+# scq
+dt4mod_scq = dt4mod %>% 
+  filter(is.na(scq_total) == "FALSE")
+lm_scq = lm(form2use_scq, dt4mod_scq)
+aov_res_scq = anova(lm_scq)
+
+td_v_a1_scq = t.test(dt4mod_scq[dt4mod_scq$subtype == "td", "scq_total"], dt4mod_scq[dt4mod_scq$subtype == "a1", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_scq = t.test(dt4mod_scq[dt4mod_scq$subtype == "td", "scq_total"], dt4mod_scq[dt4mod_scq$subtype == "a2", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_scq = t.test(dt4mod_scq[dt4mod_scq$subtype == "a1", "scq_total"], dt4mod_scq[dt4mod_scq$subtype == "a2", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_scq_d = cohens_d(dt4mod_scq[dt4mod_scq$subtype == "td",]$scq_total, dt4mod_scq[dt4mod_scq$subtype == "a1",]$scq_total)
+td_v_a2_scq_d = cohens_d(dt4mod_scq[dt4mod_scq$subtype == "td",]$scq_total, dt4mod_scq[dt4mod_scq$subtype == "a2",]$scq_total)
+a1_v_a2_scq_d = cohens_d(dt4mod_scq[dt4mod_scq$subtype == "a1",]$scq_total, dt4mod_scq[dt4mod_scq$subtype == "a2",]$scq_total)
+
+# srs
+dt4mod_srs = dt4mod %>% 
+  filter(is.na(srs_total_T) == "FALSE")
+lm_srs = lm(form2use_srs, dt4mod_srs)
+aov_res_srs = anova(lm_srs)
+
+td_v_a1_srs = t.test(dt4mod_srs[dt4mod_srs$subtype == "td", "srs_total_T"], dt4mod_srs[dt4mod_srs$subtype == "a1", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_srs = t.test(dt4mod_srs[dt4mod_srs$subtype == "td", "srs_total_T"], dt4mod_srs[dt4mod_srs$subtype == "a2", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_srs = t.test(dt4mod_srs[dt4mod_srs$subtype == "a1", "srs_total_T"], dt4mod_srs[dt4mod_srs$subtype == "a2", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_srs_d = cohens_d(dt4mod_srs[dt4mod_srs$subtype == "td",]$srs_total_T, dt4mod_srs[dt4mod_srs$subtype == "a1",]$srs_total_T)
+td_v_a2_srs_d = cohens_d(dt4mod_srs[dt4mod_srs$subtype == "td",]$srs_total_T, dt4mod_srs[dt4mod_srs$subtype == "a2",]$srs_total_T)
+a1_v_a2_srs_d = cohens_d(dt4mod_srs[dt4mod_srs$subtype == "a1",]$srs_total_T, dt4mod_srs[dt4mod_srs$subtype == "a2",]$srs_total_T)
+
+
+
+## Save results
+# age
+output_res["age", "td_v_a1_v_a2_F"] = aov_res_age["subtype", "F value"]
+output_res["age", "td_v_a1_v_a2_p"] = aov_res_age["subtype", "Pr(>F)"]
+
+output_res["age", "td_v_a1_t"] = td_v_a1_age$statistic[["t"]]
+output_res["age", "td_v_a1_p"] = td_v_a1_age$p.value
+
+output_res["age", "td_v_a2_t"] = td_v_a2_age$statistic[["t"]]
+output_res["age", "td_v_a2_p"] = td_v_a2_age$p.value
+
+output_res["age", "a1_v_a2_t"] = a1_v_a2_age$statistic[["t"]]
+output_res["age", "a1_v_a2_p"] = a1_v_a2_age$p.value
+
+output_res["age", "td_v_a1_d"] = td_v_a1_age_d
+output_res["age", "td_v_a2_d"] = td_v_a2_age_d
+output_res["age", "a1_v_a2_d"] = a1_v_a2_age_d
+
+#fiq
+output_res["fiq", "td_v_a1_v_a2_F"] = aov_res_fiq["subtype", "F value"]
+output_res["fiq", "td_v_a1_v_a2_p"] = aov_res_fiq["subtype", "Pr(>F)"]
+
+output_res["fiq", "td_v_a1_t"] = td_v_a1_fiq$statistic[["t"]]
+output_res["fiq", "td_v_a1_p"] = td_v_a1_fiq$p.value
+
+output_res["fiq", "td_v_a2_t"] = td_v_a2_fiq$statistic[["t"]]
+output_res["fiq", "td_v_a2_p"] = td_v_a2_fiq$p.value
+
+output_res["fiq", "a1_v_a2_t"] = a1_v_a2_fiq$statistic[["t"]]
+output_res["fiq", "a1_v_a2_p"] = a1_v_a2_fiq$p.value
+
+output_res["fiq", "td_v_a1_d"] = td_v_a1_fiq_d
+output_res["fiq", "td_v_a2_d"] = td_v_a2_fiq_d
+output_res["fiq", "a1_v_a2_d"] = a1_v_a2_fiq_d
+
+# assq
+output_res["assq", "td_v_a1_v_a2_F"] = aov_res_assq["subtype", "F value"]
+output_res["assq", "td_v_a1_v_a2_p"] = aov_res_assq["subtype", "Pr(>F)"]
+
+output_res["assq", "td_v_a1_t"] = td_v_a1_assq$statistic[["t"]]
+output_res["assq", "td_v_a1_p"] = td_v_a1_assq$p.value
+
+output_res["assq", "td_v_a2_t"] = td_v_a2_assq$statistic[["t"]]
+output_res["assq", "td_v_a2_p"] = td_v_a2_assq$p.value
+
+output_res["assq", "a1_v_a2_t"] = a1_v_a2_assq$statistic[["t"]]
+output_res["assq", "a1_v_a2_p"] = a1_v_a2_assq$p.value
+
+output_res["assq", "td_v_a1_d"] = td_v_a1_assq_d
+output_res["assq", "td_v_a2_d"] = td_v_a2_assq_d
+output_res["assq", "a1_v_a2_d"] = a1_v_a2_assq_d
+
+# rbs
+output_res["rbs", "td_v_a1_v_a2_F"] = aov_res_rbs["subtype", "F value"]
+output_res["rbs", "td_v_a1_v_a2_p"] = aov_res_rbs["subtype", "Pr(>F)"]
+
+output_res["rbs", "td_v_a1_t"] = td_v_a1_rbs$statistic[["t"]]
+output_res["rbs", "td_v_a1_p"] = td_v_a1_rbs$p.value
+
+output_res["rbs", "td_v_a2_t"] = td_v_a2_rbs$statistic[["t"]]
+output_res["rbs", "td_v_a2_p"] = td_v_a2_rbs$p.value
+
+output_res["rbs", "a1_v_a2_t"] = a1_v_a2_rbs$statistic[["t"]]
+output_res["rbs", "a1_v_a2_p"] = a1_v_a2_rbs$p.value
+
+output_res["rbs", "td_v_a1_d"] = td_v_a1_rbs_d
+output_res["rbs", "td_v_a2_d"] = td_v_a2_rbs_d
+output_res["rbs", "a1_v_a2_d"] = a1_v_a2_rbs_d
+
+# scq
+output_res["scq", "td_v_a1_v_a2_F"] = aov_res_scq["subtype", "F value"]
+output_res["scq", "td_v_a1_v_a2_p"] = aov_res_scq["subtype", "Pr(>F)"]
+
+output_res["scq", "td_v_a1_t"] = td_v_a1_scq$statistic[["t"]]
+output_res["scq", "td_v_a1_p"] = td_v_a1_scq$p.value
+
+output_res["scq", "td_v_a2_t"] = td_v_a2_scq$statistic[["t"]]
+output_res["scq", "td_v_a2_p"] = td_v_a2_scq$p.value
+
+output_res["scq", "a1_v_a2_t"] = a1_v_a2_scq$statistic[["t"]]
+output_res["scq", "a1_v_a2_p"] = a1_v_a2_scq$p.value
+
+output_res["scq", "td_v_a1_d"] = td_v_a1_scq_d
+output_res["scq", "td_v_a2_d"] = td_v_a2_scq_d
+output_res["scq", "a1_v_a2_d"] = a1_v_a2_scq_d
+
+# srs
+output_res["srs", "td_v_a1_v_a2_F"] = aov_res_srs["subtype", "F value"]
+output_res["srs", "td_v_a1_v_a2_p"] = aov_res_srs["subtype", "Pr(>F)"]
+
+output_res["srs", "td_v_a1_t"] = td_v_a1_srs$statistic[["t"]]
+output_res["srs", "td_v_a1_p"] = td_v_a1_srs$p.value
+
+output_res["srs", "td_v_a2_t"] = td_v_a2_srs$statistic[["t"]]
+output_res["srs", "td_v_a2_p"] = td_v_a2_srs$p.value
+
+output_res["srs", "a1_v_a2_t"] = a1_v_a2_srs$statistic[["t"]]
+output_res["srs", "a1_v_a2_p"] = a1_v_a2_srs$p.value
+
+output_res["srs", "td_v_a1_d"] = td_v_a1_srs_d
+output_res["srs", "td_v_a2_d"] = td_v_a2_srs_d
+output_res["srs", "a1_v_a2_d"] = a1_v_a2_srs_d
+
+
+# fdr correction
+
+output_res[, "td_v_a1_v_a2_fdr"] = p.adjust(output_res[,"td_v_a1_v_a2_p"], method = "fdr") 
+output_res[, "td_v_a1_fdr"] = p.adjust(output_res[,"td_v_a1_p"], method = "fdr") 
+output_res[, "td_v_a2_fdr"] = p.adjust(output_res[,"td_v_a2_p"], method = "fdr") 
+output_res[, "a1_v_a2_fdr"] = p.adjust(output_res[,"a1_v_a2_p"], method = "fdr") 
+
+write.csv(output_res, file = file.path(resultpath, "11_adjH_rsopen_pheno_analyses.csv"))
+
+output_res
+```
+
+### Plot eyes open - subtypes
+``` {r, warning=FALSE, message=FALSE}
+# set data
+dt2plot = dt4mod_sbt
+
+# set constants
+a_ratio = 1.2
+plot_title = 18
+x_title = 16
+x_ticks = 12
+y_ticks = 16
+
+# Plot age
+rseo_age_plot = ggplot(data = dt2plot, aes(x = subtype, y = age,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_age) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .2, justification = 1.2, binwidth = .5) +
+  theme_bw() + coord_flip() + 
+  labs(y = "age\n", title = "rsopen\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_age),
+         aspect.ratio = a_ratio)
+
+rseo_age_plot
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_age.pdf"))
+
+# Plot fiq
+rseo_fiq_plot = ggplot(data = dt2plot, aes(x = subtype, y = fiq,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_fiq) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .8, justification = 1.2, binwidth = 1) +
+  theme_bw() + coord_flip() + 
+  labs(y = "full scale IQ\n", title = "rsopen\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_fiq),
+         aspect.ratio = a_ratio)
+
+rseo_fiq_plot
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_fiq.pdf"))
+
+# Plot srs
+rseo_srs_plot = ggplot(data = dt2plot, aes(x = subtype, y = srs_total_T,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_srs) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .5, justification = 1.2, binwidth = 1) +
+  theme_bw() + coord_flip() + 
+  labs(y = "SRS-2 total scores\n", title = "rsopen\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_srs),
+         aspect.ratio = a_ratio)
+
+rseo_srs_plot
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_srs_total_T.pdf"))
+
+
+rseo_rbs_plot = ggplot(data = dt2plot, aes(x = subtype, y = rbs_total,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_rbs) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = 5, justification = 1.2, binwidth = .4) +
+  theme_bw() + coord_flip() + 
+  labs(y = "RBS-R total scores\n", title = "rsopen\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_rbs),
+         aspect.ratio = a_ratio)
+
+rseo_rbs_plot
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_rbs_total.pdf"))
+
+
+rseo_scq_plot = ggplot(data = dt2plot, aes(x = subtype, y = scq_total,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_scq) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .6, justification = 1.2, binwidth = .5) +
+  theme_bw() + coord_flip() + 
+  labs(y = "SCQ total scores\n", title = "rsopen\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_scq),
+         aspect.ratio = a_ratio)
+
+rseo_scq_plot
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_scq_total.pdf"))
+
+
+rseo_assq_plot = ggplot(data = dt2plot, aes(x = subtype, y = assq_total,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_assq) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .8, justification = 1.2, binwidth = .7) +
+  theme_bw() + coord_flip() + 
+  labs(y = "ASSQ total scores\n", title = "rsopen\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_assq),
+         aspect.ratio = a_ratio)
+
+rseo_assq_plot
+ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_assq_total.pdf"))
+
+# ggarrange(rseo_age_plot, rseo_fiq_plot, 
+#           rseo_assq_plot, rseo_rbs_plot, rseo_scq_plot, rseo_srs_plot, 
+#           ncol = 2, nrow =1)
+# ggsave(filename = file.path(rsopen_plotpath, "pheno", "11_adjH_age+fiq+autism-quest.pdf"))
+```
+
+## Resting State Eyes Closed
+``` {r, warning=FALSE, message=FALSE}
+# Clean up data
+name2save = "rsclosed"
+
+## Clean up data
+pheno_rseo = tidy_data %>%
+  filter(condition == "closed" ) %>%
+  select(subid, dx, dx1_short, age,
+         rsclosed_subgroup_glob,
+         wais_fiq,wasi_fiq,wisc_fiq,
+         assq_total,scq_total,rbs_total, srs_total_T) %>% 
+  distinct()
+
+# make a subtype and fiq variable from uniting different variables together
+dt4mod = pheno_rseo %>% 
+  unite(subtype, dx1_short, rsclosed_subgroup_glob, na.rm = TRUE) %>%
+  unite(fiq, wais_fiq, wasi_fiq,wisc_fiq, na.rm = TRUE)
+dt4mod$fiq = as.numeric(dt4mod$fiq)
+  
+  
+  # relevel data for plotting
+  level_order <- c('TD', 'ASD_1', 'ASD_2') 
+  dt4mod$subtype = factor(dt4mod$subtype, levels = level_order,
+    labels = c("td", "a1", "a2"))
+
+# subtypes only df
+dt4mod_sbt = dt4mod %>%
+  filter(subtype != "td")
+
+## summarise data
+rsec_pheno_tbl = as.data.frame(dt4mod %>% 
+                             group_by(subtype) %>%
+                             summarise(N = n(),
+                                       mean_age = mean(age, na.rm = TRUE),
+                                       std_age = sd(age, na.rm = TRUE),
+                                       mean_fiq = mean(fiq, na.rm = TRUE),
+                                       std_fiq = sd(fiq, na.rm = TRUE),
+                                       mean_assq = mean(assq_total, na.rm = TRUE),
+                                       std_assq = sd(assq_total, na.rm = TRUE),
+                                       mean_rbs = mean(rbs_total, na.rm = TRUE),
+                                       std_rbs = sd(rbs_total, na.rm = TRUE),
+                                       mean_scq = mean(scq_total, na.rm = TRUE),
+                                       std_scq = sd(scq_total, na.rm = TRUE),
+                                       mean_srs = mean(srs_total_T, na.rm = TRUE),
+                                       std_srs = sd(srs_total_T, na.rm = TRUE))
+)
+                             
+rsec_pheno_tbl[,'condition'] = c(name2save, name2save, name2save)
+rsec_pheno_tbl = rsec_pheno_tbl %>% 
+  relocate("condition", .before = "subtype")
+
+
+## Run analyses
+# Run linear model with TD a1 a2: age and fiq
+lm_age = lm(form2use_age, dt4mod)
+aov_res_age = anova(lm_age)
+#ptt_age = pairwise.t.test(dt4mod$age, dt4mod$subtype, p.adj = "fdr")
+
+td_v_a1_age = t.test(dt4mod[dt4mod$subtype == "td", "age"], dt4mod[dt4mod$subtype == "a1", "age"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_age = t.test(dt4mod[dt4mod$subtype == "td", "age"], dt4mod[dt4mod$subtype == "a2", "age"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_age = t.test(dt4mod[dt4mod$subtype == "a1", "age"], dt4mod[dt4mod$subtype == "a2", "age"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_age_d = cohens_d(dt4mod[dt4mod$subtype == "td",]$age, dt4mod[dt4mod$subtype == "a1",]$age)
+td_v_a2_age_d = cohens_d(dt4mod[dt4mod$subtype == "td",]$age, dt4mod[dt4mod$subtype == "a2",]$age)
+a1_v_a2_age_d = cohens_d(dt4mod[dt4mod$subtype == "a1",]$age, dt4mod[dt4mod$subtype == "a2",]$age)
+
+dt4mod_fiq = dt4mod[!is.na(dt4mod$fiq),]
+lm_fiq = lm(form2use_fiq, dt4mod_fiq)
+aov_res_fiq = anova(lm_fiq)
+#ptt_fiq = pairwise.t.test(dt4mod_fiq$fiq, dt4mod_fiq$subtype, p.adj = "fdr")
+
+td_v_a1_fiq = t.test(dt4mod_fiq[dt4mod_fiq$subtype == "td", "fiq"], dt4mod_fiq[dt4mod_fiq$subtype == "a1", "fiq"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_fiq = t.test(dt4mod_fiq[dt4mod_fiq$subtype == "td", "fiq"], dt4mod_fiq[dt4mod_fiq$subtype == "a2", "fiq"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_fiq = t.test(dt4mod_fiq[dt4mod_fiq$subtype == "a1", "fiq"], dt4mod_fiq[dt4mod_fiq$subtype == "a2", "fiq"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_fiq_d = cohens_d(dt4mod_fiq[dt4mod_fiq$subtype == "td",]$fiq, dt4mod_fiq[dt4mod_fiq$subtype == "a1",]$fiq)
+td_v_a2_fiq_d = cohens_d(dt4mod_fiq[dt4mod_fiq$subtype == "td",]$fiq, dt4mod_fiq[dt4mod_fiq$subtype == "a2",]$fiq)
+a1_v_a2_fiq_d = cohens_d(dt4mod_fiq[dt4mod_fiq$subtype == "a1",]$fiq, dt4mod_fiq[dt4mod_fiq$subtype == "a2",]$fiq)
+
+# assq 
+dt4mod_assq = dt4mod %>% 
+  filter(is.na(assq_total) == "FALSE")
+lm_assq = lm(form2use_assq, dt4mod_assq)
+aov_res_assq = anova(lm_assq)
+
+td_v_a1_assq = t.test(dt4mod_assq[dt4mod_assq$subtype == "td", "assq_total"], dt4mod_assq[dt4mod_assq$subtype == "a1", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_assq = t.test(dt4mod_assq[dt4mod_assq$subtype == "td", "assq_total"], dt4mod_assq[dt4mod_assq$subtype == "a2", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_assq = t.test(dt4mod_assq[dt4mod_assq$subtype == "a1", "assq_total"], dt4mod_assq[dt4mod_assq$subtype == "a2", "assq_total"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_assq_d = cohens_d(dt4mod_assq[dt4mod_assq$subtype == "td",]$assq_total, dt4mod_assq[dt4mod_assq$subtype == "a1",]$assq_total)
+td_v_a2_assq_d = cohens_d(dt4mod_assq[dt4mod_assq$subtype == "td",]$assq_total, dt4mod_assq[dt4mod_assq$subtype == "a2",]$assq_total)
+a1_v_a2_assq_d = cohens_d(dt4mod_assq[dt4mod_assq$subtype == "a1",]$assq_total, dt4mod_assq[dt4mod_assq$subtype == "a2",]$assq_total)
+
+
+# rbs
+dt4mod_rbs = dt4mod %>% 
+  filter(is.na(rbs_total) == "FALSE")
+lm_rbs = lm(form2use_rbs, dt4mod_rbs)
+aov_res_rbs = anova(lm_rbs)
+
+td_v_a1_rbs = t.test(dt4mod_rbs[dt4mod_rbs$subtype == "td", "rbs_total"], dt4mod_rbs[dt4mod_rbs$subtype == "a1", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_rbs = t.test(dt4mod_rbs[dt4mod_rbs$subtype == "td", "rbs_total"], dt4mod_rbs[dt4mod_rbs$subtype == "a2", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_rbs = t.test(dt4mod_rbs[dt4mod_rbs$subtype == "a1", "rbs_total"], dt4mod_rbs[dt4mod_rbs$subtype == "a2", "rbs_total"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_rbs_d = cohens_d(dt4mod_rbs[dt4mod_rbs$subtype == "td",]$rbs_total, dt4mod_rbs[dt4mod_rbs$subtype == "a1",]$rbs_total)
+td_v_a2_rbs_d = cohens_d(dt4mod_rbs[dt4mod_rbs$subtype == "td",]$rbs_total, dt4mod_rbs[dt4mod_rbs$subtype == "a2",]$rbs_total)
+a1_v_a2_rbs_d = cohens_d(dt4mod_rbs[dt4mod_rbs$subtype == "a1",]$rbs_total, dt4mod_rbs[dt4mod_rbs$subtype == "a2",]$rbs_total)
+
+# scq
+dt4mod_scq = dt4mod %>% 
+  filter(is.na(scq_total) == "FALSE")
+lm_scq = lm(form2use_scq, dt4mod_scq)
+aov_res_scq = anova(lm_scq)
+
+td_v_a1_scq = t.test(dt4mod_scq[dt4mod_scq$subtype == "td", "scq_total"], dt4mod_scq[dt4mod_scq$subtype == "a1", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_scq = t.test(dt4mod_scq[dt4mod_scq$subtype == "td", "scq_total"], dt4mod_scq[dt4mod_scq$subtype == "a2", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_scq = t.test(dt4mod_scq[dt4mod_scq$subtype == "a1", "scq_total"], dt4mod_scq[dt4mod_scq$subtype == "a2", "scq_total"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_scq_d = cohens_d(dt4mod_scq[dt4mod_scq$subtype == "td",]$scq_total, dt4mod_scq[dt4mod_scq$subtype == "a1",]$scq_total)
+td_v_a2_scq_d = cohens_d(dt4mod_scq[dt4mod_scq$subtype == "td",]$scq_total, dt4mod_scq[dt4mod_scq$subtype == "a2",]$scq_total)
+a1_v_a2_scq_d = cohens_d(dt4mod_scq[dt4mod_scq$subtype == "a1",]$scq_total, dt4mod_scq[dt4mod_scq$subtype == "a2",]$scq_total)
+
+# srs
+dt4mod_srs = dt4mod %>% 
+  filter(is.na(srs_total_T) == "FALSE")
+lm_srs = lm(form2use_srs, dt4mod_srs)
+aov_res_srs = anova(lm_srs)
+
+td_v_a1_srs = t.test(dt4mod_srs[dt4mod_srs$subtype == "td", "srs_total_T"], dt4mod_srs[dt4mod_srs$subtype == "a1", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+td_v_a2_srs = t.test(dt4mod_srs[dt4mod_srs$subtype == "td", "srs_total_T"], dt4mod_srs[dt4mod_srs$subtype == "a2", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+a1_v_a2_srs = t.test(dt4mod_srs[dt4mod_srs$subtype == "a1", "srs_total_T"], dt4mod_srs[dt4mod_srs$subtype == "a2", "srs_total_T"], alternative = "two.sided", var.equal = FALSE)
+
+td_v_a1_srs_d = cohens_d(dt4mod_srs[dt4mod_srs$subtype == "td",]$srs_total_T, dt4mod_srs[dt4mod_srs$subtype == "a1",]$srs_total_T)
+td_v_a2_srs_d = cohens_d(dt4mod_srs[dt4mod_srs$subtype == "td",]$srs_total_T, dt4mod_srs[dt4mod_srs$subtype == "a2",]$srs_total_T)
+a1_v_a2_srs_d = cohens_d(dt4mod_srs[dt4mod_srs$subtype == "a1",]$srs_total_T, dt4mod_srs[dt4mod_srs$subtype == "a2",]$srs_total_T)
+
+
+
+## Save results
+# age
+output_res["age", "td_v_a1_v_a2_F"] = aov_res_age["subtype", "F value"]
+output_res["age", "td_v_a1_v_a2_p"] = aov_res_age["subtype", "Pr(>F)"]
+
+output_res["age", "td_v_a1_t"] = td_v_a1_age$statistic[["t"]]
+output_res["age", "td_v_a1_p"] = td_v_a1_age$p.value
+
+output_res["age", "td_v_a2_t"] = td_v_a2_age$statistic[["t"]]
+output_res["age", "td_v_a2_p"] = td_v_a2_age$p.value
+
+output_res["age", "a1_v_a2_t"] = a1_v_a2_age$statistic[["t"]]
+output_res["age", "a1_v_a2_p"] = a1_v_a2_age$p.value
+
+output_res["age", "td_v_a1_d"] = td_v_a1_age_d
+output_res["age", "td_v_a2_d"] = td_v_a2_age_d
+output_res["age", "a1_v_a2_d"] = a1_v_a2_age_d
+
+#fiq
+output_res["fiq", "td_v_a1_v_a2_F"] = aov_res_fiq["subtype", "F value"]
+output_res["fiq", "td_v_a1_v_a2_p"] = aov_res_fiq["subtype", "Pr(>F)"]
+
+output_res["fiq", "td_v_a1_t"] = td_v_a1_fiq$statistic[["t"]]
+output_res["fiq", "td_v_a1_p"] = td_v_a1_fiq$p.value
+
+output_res["fiq", "td_v_a2_t"] = td_v_a2_fiq$statistic[["t"]]
+output_res["fiq", "td_v_a2_p"] = td_v_a2_fiq$p.value
+
+output_res["fiq", "a1_v_a2_t"] = a1_v_a2_fiq$statistic[["t"]]
+output_res["fiq", "a1_v_a2_p"] = a1_v_a2_fiq$p.value
+
+output_res["fiq", "td_v_a1_d"] = td_v_a1_fiq_d
+output_res["fiq", "td_v_a2_d"] = td_v_a2_fiq_d
+output_res["fiq", "a1_v_a2_d"] = a1_v_a2_fiq_d
+
+# assq
+output_res["assq", "td_v_a1_v_a2_F"] = aov_res_assq["subtype", "F value"]
+output_res["assq", "td_v_a1_v_a2_p"] = aov_res_assq["subtype", "Pr(>F)"]
+
+output_res["assq", "td_v_a1_t"] = td_v_a1_assq$statistic[["t"]]
+output_res["assq", "td_v_a1_p"] = td_v_a1_assq$p.value
+
+output_res["assq", "td_v_a2_t"] = td_v_a2_assq$statistic[["t"]]
+output_res["assq", "td_v_a2_p"] = td_v_a2_assq$p.value
+
+output_res["assq", "a1_v_a2_t"] = a1_v_a2_assq$statistic[["t"]]
+output_res["assq", "a1_v_a2_p"] = a1_v_a2_assq$p.value
+
+output_res["assq", "td_v_a1_d"] = td_v_a1_assq_d
+output_res["assq", "td_v_a2_d"] = td_v_a2_assq_d
+output_res["assq", "a1_v_a2_d"] = a1_v_a2_assq_d
+
+# rbs
+output_res["rbs", "td_v_a1_v_a2_F"] = aov_res_rbs["subtype", "F value"]
+output_res["rbs", "td_v_a1_v_a2_p"] = aov_res_rbs["subtype", "Pr(>F)"]
+
+output_res["rbs", "td_v_a1_t"] = td_v_a1_rbs$statistic[["t"]]
+output_res["rbs", "td_v_a1_p"] = td_v_a1_rbs$p.value
+
+output_res["rbs", "td_v_a2_t"] = td_v_a2_rbs$statistic[["t"]]
+output_res["rbs", "td_v_a2_p"] = td_v_a2_rbs$p.value
+
+output_res["rbs", "a1_v_a2_t"] = a1_v_a2_rbs$statistic[["t"]]
+output_res["rbs", "a1_v_a2_p"] = a1_v_a2_rbs$p.value
+
+output_res["rbs", "td_v_a1_d"] = td_v_a1_rbs_d
+output_res["rbs", "td_v_a2_d"] = td_v_a2_rbs_d
+output_res["rbs", "a1_v_a2_d"] = a1_v_a2_rbs_d
+
+# scq
+output_res["scq", "td_v_a1_v_a2_F"] = aov_res_scq["subtype", "F value"]
+output_res["scq", "td_v_a1_v_a2_p"] = aov_res_scq["subtype", "Pr(>F)"]
+
+output_res["scq", "td_v_a1_t"] = td_v_a1_scq$statistic[["t"]]
+output_res["scq", "td_v_a1_p"] = td_v_a1_scq$p.value
+
+output_res["scq", "td_v_a2_t"] = td_v_a2_scq$statistic[["t"]]
+output_res["scq", "td_v_a2_p"] = td_v_a2_scq$p.value
+
+output_res["scq", "a1_v_a2_t"] = a1_v_a2_scq$statistic[["t"]]
+output_res["scq", "a1_v_a2_p"] = a1_v_a2_scq$p.value
+
+output_res["scq", "td_v_a1_d"] = td_v_a1_scq_d
+output_res["scq", "td_v_a2_d"] = td_v_a2_scq_d
+output_res["scq", "a1_v_a2_d"] = a1_v_a2_scq_d
+
+# srs
+output_res["srs", "td_v_a1_v_a2_F"] = aov_res_srs["subtype", "F value"]
+output_res["srs", "td_v_a1_v_a2_p"] = aov_res_srs["subtype", "Pr(>F)"]
+
+output_res["srs", "td_v_a1_t"] = td_v_a1_srs$statistic[["t"]]
+output_res["srs", "td_v_a1_p"] = td_v_a1_srs$p.value
+
+output_res["srs", "td_v_a2_t"] = td_v_a2_srs$statistic[["t"]]
+output_res["srs", "td_v_a2_p"] = td_v_a2_srs$p.value
+
+output_res["srs", "a1_v_a2_t"] = a1_v_a2_srs$statistic[["t"]]
+output_res["srs", "a1_v_a2_p"] = a1_v_a2_srs$p.value
+
+output_res["srs", "td_v_a1_d"] = td_v_a1_srs_d
+output_res["srs", "td_v_a2_d"] = td_v_a2_srs_d
+output_res["srs", "a1_v_a2_d"] = a1_v_a2_srs_d
+
+output_res[, "td_v_a1_v_a2_fdr"] = p.adjust(output_res[,"td_v_a1_v_a2_p"], method = "fdr") 
+output_res[, "td_v_a1_fdr"] = p.adjust(output_res[,"td_v_a1_p"], method = "fdr") 
+output_res[, "td_v_a2_fdr"] = p.adjust(output_res[,"td_v_a2_p"], method = "fdr") 
+output_res[, "a1_v_a2_fdr"] = p.adjust(output_res[,"a1_v_a2_p"], method = "fdr") 
+
+write.csv(output_res, file = file.path(resultpath, "11_adjH_rsclosed_pheno_analyses.csv"))
+
+output_res
+```
+
+# Plot Resting State Eyes Closed
+``` {r, warning=FALSE, message=FALSE}
+# set data
+dt2plot = dt4mod_sbt
+
+# set constants
+a_ratio = 1.2
+plot_title = 18
+x_title = 16
+x_ticks = 12
+y_ticks = 16
+
+# Plot age
+rseo_age_plot = ggplot(data = dt2plot, aes(x = subtype, y = age,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_age) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .2, justification = 1.2, binwidth = .5) +
+  theme_bw() + coord_flip() + 
+  labs(y = "age\n", title = "rsclosed\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_age),
+         aspect.ratio = a_ratio)
+
+rseo_age_plot
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_age.pdf"))
+
+# Plot fiq
+rseo_fiq_plot = ggplot(data = dt2plot, aes(x = subtype, y = fiq,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_fiq) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .8, justification = 1.2, binwidth = 1) +
+  theme_bw() + coord_flip() + 
+  labs(y = "full scale IQ\n", title = "rsclosed\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_fiq),
+         aspect.ratio = a_ratio)
+
+rseo_fiq_plot
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_fiq.pdf"))
+
+# Plot srs
+rseo_srs_plot = ggplot(data = dt2plot, aes(x = subtype, y = srs_total_T,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_srs) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .5, justification = 1.2, binwidth = 1) +
+  theme_bw() + coord_flip() + 
+  labs(y = "SRS-2 total scores\n", title = "rsclosed\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_srs),
+         aspect.ratio = a_ratio)
+
+rseo_srs_plot
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_srs_total_T.pdf"))
+
+
+rseo_rbs_plot = ggplot(data = dt2plot, aes(x = subtype, y = rbs_total,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_rbs) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = 5, justification = 1.2, binwidth = .4) +
+  theme_bw() + coord_flip() + 
+  labs(y = "RBS-R total scores\n", title = "rsclosed\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_rbs),
+         aspect.ratio = a_ratio)
+
+rseo_rbs_plot
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_rbs_total.pdf"))
+
+
+rseo_scq_plot = ggplot(data = dt2plot, aes(x = subtype, y = scq_total,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_scq) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .6, justification = 1.2, binwidth = .5) +
+  theme_bw() + coord_flip() + 
+  labs(y = "SCQ total scores\n", title = "rsclosed\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_scq),
+         aspect.ratio = a_ratio)
+
+rseo_scq_plot
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_scq_total.pdf"))
+
+
+rseo_assq_plot = ggplot(data = dt2plot, aes(x = subtype, y = assq_total,  fill = subtype)) +
+  geom_flat_violin(alpha = 0.6, trim = TRUE, scale = "count") +
+  scale_fill_manual(values = c2use_assq) +
+  geom_boxplot(width = 0.15, color = "black", fill = "white") +
+  stat_dots(side = "left", dotsize = .8, justification = 1.2, binwidth = .7) +
+  theme_bw() + coord_flip() + 
+  labs(y = "ASSQ total scores\n", title = "rsclosed\n")  +
+  theme(legend.position = "none",
+        title = element_text(size = plot_title),
+        axis.title.x = element_text(size = x_title),
+        axis.text.x = element_text(size = x_ticks),
+        axis.title.y = element_blank(),
+         axis.text.y = element_text(size = y_ticks, colour = c2use_assq),
+         aspect.ratio = a_ratio)
+
+rseo_assq_plot
+ggsave(filename = file.path(rsclosed_plotpath, "pheno", "11_adjH_assq_total.pdf"))
+```
+
+## Save to csv
+```{r, warning=FALSE, message=FALSE}
+# write.csv(output_res, file = file.path(resultpath, "restingstate_pheno_analyses.csv"))
+
+all_pheno_summaries = rbind(rseo_pheno_tbl, rsec_pheno_tbl)
+write.csv(all_pheno_summaries, file = file.path(resultpath, "11_adjH_restingstate_pheno_summary.csv"))
+
+all_pheno_summaries
+
+output_res
+```

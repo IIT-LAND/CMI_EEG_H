@@ -1,0 +1,281 @@
+---
+title: "Plot PLS results"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Paths
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("tidyverse","ggheatmap","ggeasy","here","patchwork")
+
+codepath = here("code")
+resultpath = here("results", "reval", "global")
+plotdir = here("plots", "reval", "global")
+plotdir_rsopen = file.path(plotdir, "rsopen")
+plotdir_rsclosed = file.path(plotdir, "rsclosed")
+```
+
+# Plot PLS results
+
+```{r, warning=FALSE, message=FALSE}
+corrmat2plot <- function(df2use,group_names){
+  
+  raw_data = data.frame(matrix(nrow = 9, ncol = length(group_names)+1))
+  rownames(raw_data) = unique(df2use$VarName)
+  colnames(raw_data) = c("VarName",group_names)
+  
+  raw_data$VarName = unique(df2use$VarName)
+  dfsubset = df2use %>% filter(Grp==group_names[1])
+  raw_data[,group_names[1]] = dfsubset$corr  
+  dfsubset = df2use %>% filter(Grp==group_names[2])
+  raw_data[,group_names[2]] = dfsubset$corr  
+  dfsubset = df2use %>% filter(Grp==group_names[3])
+  raw_data[,group_names[3]] = dfsubset$corr  
+  
+  res = data.frame(matrix(nrow = length(group_names), ncol = length(group_names)))
+  rownames(res) = group_names
+  colnames(res) = group_names
+  
+  p_res = data.frame(matrix(nrow = length(group_names), ncol = length(group_names)))
+  rownames(p_res) = group_names
+  colnames(p_res) = group_names
+  
+  corr_res = cor.test(df2use[df2use$Grp==group_names[1],"corr"], df2use[df2use$Grp==group_names[2],"corr"])
+  res[group_names[1],group_names[2]] = corr_res$estimate
+  res[group_names[2],group_names[1]] = corr_res$estimate
+  p_res[group_names[1],group_names[2]] = corr_res$p.value
+  p_res[group_names[2],group_names[1]] = corr_res$p.value
+  
+  corr_res = cor.test(df2use[df2use$Grp==group_names[2],"corr"], df2use[df2use$Grp==group_names[3],"corr"])
+  res[group_names[2],group_names[3]] = corr_res$estimate
+  res[group_names[3],group_names[2]] = corr_res$estimate
+  p_res[group_names[2],group_names[3]] = corr_res$p.value
+  p_res[group_names[3],group_names[2]] = corr_res$p.value
+  
+  corr_res = cor.test(df2use[df2use$Grp==group_names[1],"corr"], df2use[df2use$Grp==group_names[3],"corr"])
+  res[group_names[1],group_names[3]] = corr_res$estimate
+  res[group_names[3],group_names[1]] = corr_res$estimate
+  p_res[group_names[1],group_names[3]] = corr_res$p.value
+  p_res[group_names[3],group_names[1]] = corr_res$p.value
+  
+  result2export = list(res = res, p_res = p_res, raw_data = raw_data)
+  return(result2export)
+} 
+
+plot_pairwise_grp_similarity = function(corr_res, plot2use = "CorrMat"){
+  
+  if (plot2use == "CorrMat"){
+    
+    print(WGCNA::labeledHeatmap(Matrix = corr_res$res,
+                                xLabels = rownames(corr_res$res),
+                                yLabels = colnames(corr_res$res),
+                                ySymbols = NULL, 
+                                colorLabels = FALSE,
+                                # colors = WGCNA::blueWhiteRed(50),
+                                colors = colorRampPalette(c("blue","white","red"))(100),
+                                textMatrix = round(corr_res$res,digits=2),
+                                setStdMargins = FALSE, cex.text = 2, zlim = c(-1,1),
+                                main = " "))
+    result2export = NULL
+    
+  } else if (plot2use == "Scatter"){
+    
+    group_names = colnames(corr_res$res)
+    
+    p1 = ggplot(data = corr_res$raw_data, aes(x = corr_res$raw_data[,group_names[1]], 
+                                              y = corr_res$raw_data[,group_names[2]])) +
+      geom_point() + geom_smooth(method = lm) + 
+      xlab(group_names[1]) + ylab(group_names[2])
+    
+    p2 = ggplot(data = corr_res$raw_data, aes(x = corr_res$raw_data[,group_names[1]], 
+                                              y = corr_res$raw_data[,group_names[3]])) +
+      geom_point() + geom_smooth(method = lm) + 
+      xlab(group_names[1]) + ylab(group_names[3])
+    
+    p3 = ggplot(data = corr_res$raw_data, aes(x = corr_res$raw_data[,group_names[2]], 
+                                              y = corr_res$raw_data[,group_names[3]])) +
+      geom_point() + geom_smooth(method = lm) + 
+      xlab(group_names[2]) + ylab(group_names[3])
+    
+    print(p1)
+    print(p2)
+    print(p3)
+    
+    result2export = list(p1=p1,
+                         p2=p2,
+                         p3=p3)
+  }
+  
+  return(result2export)
+} 
+```
+
+# Resting State Open
+
+```{r, warning=FALSE, message=FALSE}
+rso = read.csv(file.path(resultpath, "13_pls_rsopen_ALL_BSRrev_LV1.csv"))
+rso_wide = rso %>% pivot_wider(names_from = block, values_from = BSR)
+
+rsc = read.csv(file.path(resultpath, "13_pls_rsclosed_ALL_BSR_LV1.csv"))
+rsc_wide = rsc %>% pivot_wider(names_from = block, values_from = BSR)
+
+# rsopen
+corrmat = cor(rso_wide[,2:ncol(rso_wide)])
+
+pdf(file = file.path(plotdir_rsopen,"pls", "16_rsopen_ALL_BSR_LV1_corr.pdf"), width = 7, height = 5)
+
+WGCNA::labeledHeatmap(Matrix = corrmat,
+                      xLabels = rownames(corrmat),
+                      yLabels = colnames(corrmat),
+                      ySymbols = NULL, 
+                      colorLabels = FALSE,
+                      # colors = WGCNA::blueWhiteRed(50),
+                      colors = colorRampPalette(c("blue","white","red"))(100),
+                      textMatrix = round(corrmat,digits=2),
+                      setStdMargins = FALSE, cex.text = 2, zlim = c(-1,1),
+                      main = " ",
+                      xLabelsAngle = 0,
+                      xLabelsAdj = 0.5)
+dev.off()
+
+# rsclosed
+corrmat = cor(rsc_wide[,2:ncol(rsc_wide)])
+
+pdf(file = file.path(plotdir_rsclosed,"pls", "16_rsclosed_ALL_BSR_LV1_corr.pdf"), width = 7, height = 5)
+
+WGCNA::labeledHeatmap(Matrix = corrmat,
+                      xLabels = rownames(corrmat),
+                      yLabels = colnames(corrmat),
+                      ySymbols = NULL, 
+                      colorLabels = FALSE,
+                      # colors = WGCNA::blueWhiteRed(50),
+                      colors = colorRampPalette(c("blue","white","red"))(100),
+                      textMatrix = round(corrmat,digits=2),
+                      setStdMargins = FALSE, cex.text = 2, zlim = c(-1,1),
+                      main = " ",
+                      xLabelsAngle = 0,
+                      xLabelsAdj = 0.5)
+
+dev.off()
+
+```
+
+# Resting State Open
+
+```{r, warning=FALSE, message=FALSE}
+rso = read.csv(file.path(resultpath,"14_rsopen_ALLrev_bootlim_data4plotting_LV1_ci95.csv"))
+
+variable_labels = rev(c("Age","FIQ","ASSQ","SCQ","SRS SA","SRS SocCog","SRS SC","SRS SM","SRS RRB"))
+
+fontSize = 18
+data4heatmap = rso
+level_ordering = rev(c("age","fiq","assq_total","scq_total",
+                       "srs_socialawareness_T",
+                       "srs_socialcognition_T",
+                       "srs_socialcommunication_T",
+                       "srs_socialmotivation_T",
+                       "srs_rrb_T"))
+data4heatmap$VarName = factor(data4heatmap$VarName, 
+                              levels = level_ordering)
+data4heatmap$Grp = factor(data4heatmap$Grp, levels = c("TD","Autism 1","Autism 2")) 
+me_corr_comp = data.frame(matrix(nrow = dim(data4heatmap)[1], ncol = 3))
+colnames(me_corr_comp) = c("Grp","rso","rsc")
+me_corr_comp$Grp = data4heatmap$Grp
+me_corr_comp$rso = data4heatmap$corr
+p = ggplot(data = data4heatmap) + 
+  geom_tile(aes(y = VarName, x = Grp, fill= corr)) + 
+  geom_text(aes(y= VarName, x=Grp, label = round(corr,2)),size = 6) + 
+  scale_fill_gradientn(colors = colorRampPalette(c("blue","white","red"))(100), limits=c(-0.4,0.4)) +
+  scale_y_discrete(labels = variable_labels) + 
+  scale_x_discrete(labels = c("TD","A1","A2")) + 
+  # scale_fill_gradient(low = "white", high="red") + 
+  ylab("")+xlab("") +
+  theme(
+    # Remove panel border
+    panel.border = element_blank(),  
+    # Remove panel grid lines
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    # Remove panel background
+    panel.background = element_blank(),
+    axis.text.x = element_text(size=fontSize),
+    axis.text.y = element_text(size=fontSize),
+    axis.title.x = element_text(size=fontSize),
+    strip.text.x = element_text(size=fontSize),
+    axis.title.y = element_text(size=fontSize),
+    plot.title = element_text(hjust = 0.5, size=fontSize),
+    aspect.ratio = 2) 
+
+ggsave(filename = file.path(plotdir_rsopen,"pls", "16_rsopen_LV1.pdf"), width=5, height=5)
+p
+
+corr_res = corrmat2plot(df2use = rso, group_names = c("TD","Autism 1","Autism 2"))
+corr_res$p_res
+plot_pairwise_grp_similarity(corr_res, plot2use = "CorrMat")
+# plot_pairwise_grp_similarity(corr_res, plot2use = "Scatter")
+ggsave(filename = file.path(plotdir_rsopen,"pls", "16_rsopen_LV1_corr.pdf"), width=5, height=3.5)
+dev.off()
+```
+
+
+# Resting State Closed
+
+```{r, warning=FALSE, message=FALSE}
+rsc = read.csv(file.path(resultpath,"14_rsclosed_ALL_bootlim_data4plotting_LV1_ci95.csv"))
+
+variable_labels = rev(c("Age","FIQ","ASSQ","SCQ","SRS SA","SRS SocCog","SRS SC","SRS SM","SRS RRB"))
+
+fontSize = 18
+data4heatmap = rsc
+level_ordering = rev(c("age","fiq","assq_total","scq_total",
+                       "srs_socialawareness_T",
+                       "srs_socialcognition_T",
+                       "srs_socialcommunication_T",
+                       "srs_socialmotivation_T",
+                       "srs_rrb_T"))
+data4heatmap$VarName = factor(data4heatmap$VarName, 
+                              levels = level_ordering)
+data4heatmap$Grp = factor(data4heatmap$Grp, levels = c("TD","Autism 1","Autism 2")) 
+me_corr_comp = data.frame(matrix(nrow = dim(data4heatmap)[1], ncol = 3))
+colnames(me_corr_comp) = c("Grp","rso","rsc")
+me_corr_comp$Grp = data4heatmap$Grp
+me_corr_comp$rsc = data4heatmap$corr
+p = ggplot(data = data4heatmap) + 
+  geom_tile(aes(y = VarName, x = Grp, fill= corr)) + 
+  geom_text(aes(y= VarName, x=Grp, label = round(corr,2)),size = 6) + 
+  scale_fill_gradientn(colors = colorRampPalette(c("blue","white","red"))(100), limits=c(-0.4,0.4)) +
+  scale_y_discrete(labels = variable_labels) + 
+  scale_x_discrete(labels = c("TD","A1","A2")) + 
+  # scale_fill_gradient(low = "white", high="red") + 
+  ylab("")+xlab("") +
+  theme(
+    # Remove panel border
+    panel.border = element_blank(),  
+    # Remove panel grid lines
+    panel.grid.major = element_blank(),
+    panel.grid.minor = element_blank(),
+    # Remove panel background
+    panel.background = element_blank(),
+    axis.text.x = element_text(size=fontSize),
+    axis.text.y = element_text(size=fontSize),
+    axis.title.x = element_text(size=fontSize),
+    strip.text.x = element_text(size=fontSize),
+    axis.title.y = element_text(size=fontSize),
+    plot.title = element_text(hjust = 0.5, size=fontSize),
+    aspect.ratio = 2) 
+
+ggsave(filename = file.path(plotdir_rsclosed,"pls", "16_rsclosed_LV1.pdf"), width=5,height=5)
+p
+
+pdf(file = file.path(plotdir_rsclosed,"pls", "16_rsclosed_LV1_corr.pdf"), width = 5, height = 3.5)
+corr_res = corrmat2plot(df2use = rsc, group_names = c("TD","Autism 1","Autism 2"))
+corr_res$p_res
+plot_pairwise_grp_similarity(corr_res, plot2use = "CorrMat")
+# plot_pairwise_grp_similarity(corr_res, plot2use = "Scatter")
+dev.off()
+```
+

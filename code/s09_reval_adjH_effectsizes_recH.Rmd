@@ -1,0 +1,436 @@
+---
+title: "Compute and plot effect sizes on H values reconstructed from PCs"
+author: "NatashaBertelsen"
+date: "Oct/01/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load libraries
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse", "reshape", "report","lmerTest","sigclust", "stringr","scales")
+source(here("code","cmi_utils.R"))
+```
+
+### Set paths
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+datapath = here("data", "tidy")
+plotpath = here("plots", "reval", "global")
+resultpath = here("results", "reval", "global")
+rsopen_plotpath = file.path(plotpath, "rsopen")
+rsclosed_plotpath = file.path(plotpath, "rsclosed")
+```
+
+### Load data
+```{r, warning=FALSE, message=FALSE}
+# rsopen
+dt_rseo_pc1 = read.csv(file.path(datapath,"tidy_adjH_rsopen_reconstructedHfromPC1.csv"))
+dt_rseo_pc4 = read.csv(file.path(datapath,"tidy_adjH_rsopen_reconstructedHfromPC4.csv"))
+dt_rseo_pc1pc4 = read.csv(file.path(datapath,"tidy_adjH_rsopen_reconstructedHfromPC1&4.csv"))
+
+#rsclosed
+dt_rsec_pc1 = read.csv(file.path(datapath,"tidy_adjH_rsclosed_reconstructedHfromPC1.csv"))
+dt_rsec_pc4 = read.csv(file.path(datapath,"tidy_adjH_rsclosed_reconstructedHfromPC4.csv"))
+```
+
+### Get electrode names
+```{r, warning=FALSE, message=FALSE}
+electrode_names = unique(dt_rseo_pc1$electrode)
+electrode_names = str_sort(electrode_names, numeric = TRUE)
+electrode_names = electrode_names[c(2:length(electrode_names), 1)]
+```
+
+### Prep data
+```{r, warning=FALSE, message=FALSE}
+# RSEO PC1
+# rename column
+colnames(dt_rseo_pc1)[colnames(dt_rseo_pc1) == 'rsopen_subgroup_glob'] = 'subtype'
+# relevel data for plotting
+level_order <- c('0', '1', '2') 
+dt_rseo_pc1$subtype = factor(dt_rseo_pc1$subtype, levels = level_order,
+                             labels = c("td", "a1", "a2"))
+# set H as numeric
+dt_rseo_pc1$reconstructed_H = as.numeric(dt_rseo_pc1$reconstructed_H)
+
+# RSEO PC4
+# rename column  
+colnames(dt_rseo_pc4)[colnames(dt_rseo_pc4) == 'rsopen_subgroup_glob'] = 'subtype'
+# relevel data for plotting
+level_order <- c('0', '1', '2') 
+dt_rseo_pc4$subtype = factor(dt_rseo_pc4$subtype, levels = level_order,
+                             labels = c("td", "a1", "a2"))
+# set H as numeric
+dt_rseo_pc4$reconstructed_H = as.numeric(dt_rseo_pc4$reconstructed_H)
+
+# RSEO PC1 and PC4
+# rename column  
+colnames(dt_rseo_pc1pc4)[colnames(dt_rseo_pc1pc4) == 'rsopen_subgroup_glob'] = 'subtype'
+# relevel data for plotting
+level_order <- c('0', '1', '2') 
+dt_rseo_pc1pc4$subtype = factor(dt_rseo_pc1pc4$subtype, levels = level_order,
+                             labels = c("td", "a1", "a2"))
+# set H as numeric
+dt_rseo_pc1pc4$reconstructed_H = as.numeric(dt_rseo_pc1pc4$reconstructed_H)
+
+# RSEC PC1
+# rename column
+colnames(dt_rsec_pc1)[colnames(dt_rsec_pc1) == 'rsclosed_subgroup_glob'] = 'subtype'
+# relevel data for plotting
+level_order <- c('0', '1', '2') 
+dt_rsec_pc1$subtype = factor(dt_rsec_pc1$subtype, levels = level_order,
+                             labels = c("td", "a1", "a2"))
+# set H as numeric
+dt_rsec_pc1$reconstructed_H = as.numeric(dt_rsec_pc1$reconstructed_H)
+
+# RSEC PC4
+# rename column
+colnames(dt_rsec_pc4)[colnames(dt_rsec_pc4) == 'rsclosed_subgroup_glob'] = 'subtype'
+# relevel data for plotting
+level_order <- c('0', '1', '2') 
+dt_rsec_pc4$subtype = factor(dt_rsec_pc4$subtype, levels = level_order,
+                             labels = c("td", "a1", "a2"))
+# set H as numeric
+dt_rsec_pc4$reconstructed_H = as.numeric(dt_rsec_pc4$reconstructed_H)
+```
+
+### Function to calculate effect sizes
+``` {r, warning = FALSE, message = FALSE}
+calc_effect_sizes <- function(dt, electrode_array){
+  
+  # create output df
+  output_cols = c("electrode",
+                  "a1_vs_a2_b1_d", "a1_vs_a2_b2_d", "a1_vs_a2_b3_d",
+                  "a1_vs_a2_b4_d", "a1_vs_a2_b5_d", "a1_vs_a2_mean_d",
+                  "td_vs_a1_b1_d", "td_vs_a1_b2_d", "td_vs_a1_b3_d",
+                  "td_vs_a1_b4_d", "td_vs_a1_b5_d", "td_vs_a1_mean_d",
+                  "td_vs_a2_b1_d", "td_vs_a2_b2_d", "td_vs_a2_b3_d",
+                  "td_vs_a2_b4_d", "td_vs_a2_b5_d", "td_vs_a2_mean_d"
+  )
+  
+  output_res = data.frame(matrix(nrow = length(electrode_array), ncol = length(output_cols)))
+  rownames(output_res) = electrode_array
+  colnames(output_res) = output_cols
+  
+  # loop through electrodes
+  for (elect in electrode_array){
+    
+    # select an electrode  
+    tmp_data = dt %>% filter(electrode == elect) 
+    
+    # compute effect sizes for every block
+    a1_v_a2_H_b1_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 1,]$reconstructed_H, tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 1,]$reconstructed_H)
+    a1_v_a2_H_b2_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 2,]$reconstructed_H, tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 2,]$reconstructed_H)
+    a1_v_a2_H_b3_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 3,]$reconstructed_H, tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 3,]$reconstructed_H)
+    a1_v_a2_H_b4_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 4,]$reconstructed_H, tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 4,]$reconstructed_H)
+    a1_v_a2_H_b5_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 5,]$reconstructed_H, tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 5,]$reconstructed_H)
+    a1_v_a2_H_mean_d = mean(c(a1_v_a2_H_b1_d, a1_v_a2_H_b2_d, a1_v_a2_H_b3_d, a1_v_a2_H_b4_d, a1_v_a2_H_b5_d))
+    
+    td_v_a1_H_b1_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 1,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 1,]$reconstructed_H)
+    td_v_a1_H_b2_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 2,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 2,]$reconstructed_H)
+    td_v_a1_H_b3_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 3,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 3,]$reconstructed_H)
+    td_v_a1_H_b4_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 4,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 4,]$reconstructed_H)
+    td_v_a1_H_b5_d = cohens_d(tmp_data[tmp_data$subtype == "a1" & tmp_data$block == 5,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 5,]$reconstructed_H)
+    td_v_a1_H_mean_d = mean(c(td_v_a1_H_b1_d, td_v_a1_H_b2_d, td_v_a1_H_b3_d, td_v_a1_H_b4_d, td_v_a1_H_b5_d))
+    
+    
+    td_v_a2_H_b1_d = cohens_d(tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 1,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 1,]$reconstructed_H)
+    td_v_a2_H_b2_d = cohens_d(tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 2,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 2,]$reconstructed_H)
+    td_v_a2_H_b3_d = cohens_d(tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 3,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 3,]$reconstructed_H)
+    td_v_a2_H_b4_d = cohens_d(tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 4,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 4,]$reconstructed_H)
+    td_v_a2_H_b5_d = cohens_d(tmp_data[tmp_data$subtype == "a2" & tmp_data$block == 5,]$reconstructed_H, tmp_data[tmp_data$subtype == "td" & tmp_data$block == 5,]$reconstructed_H)
+    td_v_a2_H_mean_d = mean(c(td_v_a2_H_b1_d, td_v_a2_H_b2_d, td_v_a2_H_b3_d, td_v_a2_H_b4_d, td_v_a2_H_b5_d))
+    
+    # save output 
+    output_res[elect,"electrode"] = elect
+    
+    output_res[elect,"a1_vs_a2_b1_d"] = a1_v_a2_H_b1_d
+    output_res[elect,"a1_vs_a2_b2_d"] = a1_v_a2_H_b2_d
+    output_res[elect,"a1_vs_a2_b3_d"] = a1_v_a2_H_b3_d
+    output_res[elect,"a1_vs_a2_b4_d"] = a1_v_a2_H_b4_d
+    output_res[elect,"a1_vs_a2_b5_d"] = a1_v_a2_H_b5_d
+    output_res[elect,"a1_vs_a2_mean_d"] = a1_v_a2_H_mean_d
+    
+    output_res[elect,"td_vs_a1_b1_d"] = td_v_a1_H_b1_d
+    output_res[elect,"td_vs_a1_b2_d"] = td_v_a1_H_b2_d
+    output_res[elect,"td_vs_a1_b3_d"] = td_v_a1_H_b3_d
+    output_res[elect,"td_vs_a1_b4_d"] = td_v_a1_H_b4_d
+    output_res[elect,"td_vs_a1_b5_d"] = td_v_a1_H_b5_d
+    output_res[elect,"td_vs_a1_mean_d"] = td_v_a1_H_mean_d
+    
+    output_res[elect,"td_vs_a2_b1_d"] = td_v_a2_H_b1_d
+    output_res[elect,"td_vs_a2_b2_d"] = td_v_a2_H_b2_d
+    output_res[elect,"td_vs_a2_b3_d"] = td_v_a2_H_b3_d
+    output_res[elect,"td_vs_a2_b4_d"] = td_v_a2_H_b4_d
+    output_res[elect,"td_vs_a2_b5_d"] = td_v_a2_H_b5_d
+    output_res[elect,"td_vs_a2_mean_d"] = td_v_a2_H_mean_d
+    
+  }
+  
+  return(output_res)
+} 
+```
+
+### Get effect sizes for RS open PC1
+```{r, warning = FALSE, message = FALSE}
+data2use = dt_rseo_pc1 #%>% filter(electrode == 'E2')
+electrodes2use = electrode_names #E2
+rseo_pc1_output = calc_effect_sizes(data2use, electrodes2use)
+write.csv(rseo_pc1_output, file = file.path(resultpath,"09_adjH_rsopen_Hrec-PC1_effectsizes.csv"))
+```
+
+### Get effect sizes for RS open PC4
+```{r, warning = FALSE, message = FALSE}
+data2use = dt_rseo_pc4 #%>% filter(electrode == 'E2')
+electrodes2use = electrode_names
+rseo_pc4_output = calc_effect_sizes(data2use, electrodes2use)
+write.csv(rseo_pc4_output, file = file.path(resultpath,"09_adjH_rsopen_Hrec-PC4_effectsizes.csv"))
+```
+
+### Get effect sizes for RS open PC1 & PC4
+```{r, warning = FALSE, message = FALSE}
+data2use = dt_rseo_pc1pc4 #%>% filter(electrode == 'E2')
+electrodes2use = electrode_names
+rseo_pc1pc4_output = calc_effect_sizes(data2use, electrodes2use)
+write.csv(rseo_pc1pc4_output, file = file.path(resultpath,"09_adjH_rsopen_Hrec-PC1PC4_effectsizes.csv"))
+```
+
+### Get effect sizes for RS closed PC1
+```{r, warning = FALSE, message = FALSE}
+data2use = dt_rsec_pc1 #%>% filter(electrode == 'E2')
+electrodes2use = electrode_names
+rsec_pc1_output = calc_effect_sizes(data2use, electrodes2use)
+write.csv(rsec_pc1_output, file = file.path(resultpath,"09_adjH_rsclosed_Hrec-PC1_effectsizes.csv"))
+```
+
+### Create df for plotting
+```{r, warning=FALSE, message=FALSE}
+# dataframe for plotting
+cols2keep_tdva1 = c("td_vs_a1_b1_d", "td_vs_a1_b2_d", "td_vs_a1_b3_d","td_vs_a1_b4_d", "td_vs_a1_b5_d")
+cols2keep_tdva2 = c("td_vs_a2_b1_d", "td_vs_a2_b2_d", "td_vs_a2_b3_d","td_vs_a2_b4_d", "td_vs_a2_b5_d")
+
+# eyes open PC1
+# td v a1
+rseo_tdva1_d = rseo_pc1_output %>% select(c("electrode", cols2keep_tdva1))
+rseo_tdva1_d  = pivot_longer(rseo_tdva1_d, cols2keep_tdva1) # pivot into long format (many rows)
+rseo_tdva1_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva1", nrow(rseo_tdva1_d))) # add the specific comparison
+rseo_tdva1_d = cbind(comparison, rseo_tdva1_d) # join the comparison to the data
+colnames(rseo_tdva1_d)[1] = "comparison" # rename
+colnames(rseo_tdva1_d)[2] = "electrode" # rename
+colnames(rseo_tdva1_d)[3] = "block" # rename
+colnames(rseo_tdva1_d)[4] = "d" # rename
+rseo_tdva1_d$block = as.factor(rseo_tdva1_d$block)
+
+# td vs a2
+rseo_tdva2_d = rseo_pc1_output %>% select(c("electrode", cols2keep_tdva2))
+rseo_tdva2_d  = pivot_longer(rseo_tdva2_d, cols2keep_tdva2) # pivot into long format (many rows)
+rseo_tdva2_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva2", nrow(rseo_tdva2_d))) # add the specific comparison
+rseo_tdva2_d = cbind(comparison, rseo_tdva2_d) # join the comparison to the data
+colnames(rseo_tdva2_d)[1] = "comparison" # rename
+colnames(rseo_tdva2_d)[2] = "electrode" # rename
+colnames(rseo_tdva2_d)[3] = "block" # rename
+colnames(rseo_tdva2_d)[4] = "d" # rename
+rseo_tdva2_d$block = as.factor(rseo_tdva2_d$block)
+
+# merge tdva1 and tdva2
+rseo_pc1 = rbind(rseo_tdva1_d, rseo_tdva2_d)
+
+#---
+# eyes open PC4
+# td v a1
+rseo_tdva1_d = rseo_pc4_output %>% select(c("electrode", cols2keep_tdva1))
+rseo_tdva1_d  = pivot_longer(rseo_tdva1_d, cols2keep_tdva1) # pivot into long format (many rows)
+rseo_tdva1_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva1", nrow(rseo_tdva1_d))) # add the specific comparison
+rseo_tdva1_d = cbind(comparison, rseo_tdva1_d) # join the comparison to the data
+colnames(rseo_tdva1_d)[1] = "comparison" # rename
+colnames(rseo_tdva1_d)[2] = "electrode" # rename
+colnames(rseo_tdva1_d)[3] = "block" # rename
+colnames(rseo_tdva1_d)[4] = "d" # rename
+rseo_tdva1_d$block = as.factor(rseo_tdva1_d$block)
+
+# td vs a2
+rseo_tdva2_d = rseo_pc4_output %>% select(c("electrode", cols2keep_tdva2))
+rseo_tdva2_d  = pivot_longer(rseo_tdva2_d, cols2keep_tdva2) # pivot into long format (many rows)
+rseo_tdva2_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva2", nrow(rseo_tdva2_d))) # add the specific comparison
+rseo_tdva2_d = cbind(comparison, rseo_tdva2_d) # join the comparison to the data
+colnames(rseo_tdva2_d)[1] = "comparison" # rename
+colnames(rseo_tdva2_d)[2] = "electrode" # rename
+colnames(rseo_tdva2_d)[3] = "block" # rename
+colnames(rseo_tdva2_d)[4] = "d" # rename
+rseo_tdva2_d$block = as.factor(rseo_tdva2_d$block)
+
+# merge tdva1 and tdva2
+rseo_pc4 = rbind(rseo_tdva1_d, rseo_tdva2_d)
+
+#---
+# eyes open PC1 and PC4
+# td v a1
+rseo_tdva1_d = rseo_pc1pc4_output %>% select(c("electrode", cols2keep_tdva1))
+rseo_tdva1_d  = pivot_longer(rseo_tdva1_d, cols2keep_tdva1) # pivot into long format (many rows)
+rseo_tdva1_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva1", nrow(rseo_tdva1_d))) # add the specific comparison
+rseo_tdva1_d = cbind(comparison, rseo_tdva1_d) # join the comparison to the data
+colnames(rseo_tdva1_d)[1] = "comparison" # rename
+colnames(rseo_tdva1_d)[2] = "electrode" # rename
+colnames(rseo_tdva1_d)[3] = "block" # rename
+colnames(rseo_tdva1_d)[4] = "d" # rename
+rseo_tdva1_d$block = as.factor(rseo_tdva1_d$block)
+
+# td vs a2
+rseo_tdva2_d = rseo_pc1pc4_output %>% select(c("electrode", cols2keep_tdva2))
+rseo_tdva2_d  = pivot_longer(rseo_tdva2_d, cols2keep_tdva2) # pivot into long format (many rows)
+rseo_tdva2_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva2", nrow(rseo_tdva2_d))) # add the specific comparison
+rseo_tdva2_d = cbind(comparison, rseo_tdva2_d) # join the comparison to the data
+colnames(rseo_tdva2_d)[1] = "comparison" # rename
+colnames(rseo_tdva2_d)[2] = "electrode" # rename
+colnames(rseo_tdva2_d)[3] = "block" # rename
+colnames(rseo_tdva2_d)[4] = "d" # rename
+rseo_tdva2_d$block = as.factor(rseo_tdva2_d$block)
+
+# merge tdva1 and tdva2
+rseo_pc1pc4 = rbind(rseo_tdva1_d, rseo_tdva2_d)
+
+# --- --- --- ---
+# eyes closed PC1
+# td v a1
+rsec_tdva1_d = rsec_pc1_output %>% select(c("electrode", cols2keep_tdva1))
+rsec_tdva1_d  = pivot_longer(rsec_tdva1_d, cols2keep_tdva1) # pivot into long format (many rows)
+rsec_tdva1_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva1", nrow(rsec_tdva1_d))) # add the specific comparison
+rsec_tdva1_d = cbind(comparison, rsec_tdva1_d) # join the comparison to the data
+colnames(rsec_tdva1_d)[1] = "comparison" # rename
+colnames(rsec_tdva1_d)[2] = "electrode" # rename
+colnames(rsec_tdva1_d)[3] = "block" # rename
+colnames(rsec_tdva1_d)[4] = "d" # rename
+rsec_tdva1_d$block = as.factor(rsec_tdva1_d$block)
+
+# td vs a2
+rsec_tdva2_d = rsec_pc1_output %>% select(c("electrode", cols2keep_tdva2))
+rsec_tdva2_d  = pivot_longer(rsec_tdva2_d, cols2keep_tdva2) # pivot into long format (many rows)
+rsec_tdva2_d["name"] = data.frame(rep(c(1:5), length(electrodes2use))) # substitute current 'name' with block number
+comparison = data.frame(rep("tdva2", nrow(rsec_tdva2_d))) # add the specific comparison
+rsec_tdva2_d = cbind(comparison, rsec_tdva2_d) # join the comparison to the data
+colnames(rsec_tdva2_d)[1] = "comparison" # rename
+colnames(rsec_tdva2_d)[2] = "electrode" # rename
+colnames(rsec_tdva2_d)[3] = "block" # rename
+colnames(rsec_tdva2_d)[4] = "d" # rename
+rsec_tdva2_d$block = as.factor(rsec_tdva2_d$block)
+
+# merge tdva1 and tdva2
+rsec_pc1 = rbind(rsec_tdva1_d, rsec_tdva2_d)
+```
+
+### Plot effect sizes by subtype comparison
+```{r, warning=FALSE, message=FALSE}
+# Constants
+ax_title = 18
+ax_txt = 15
+a_ratio = .6
+point_alpha = 1
+line_alpha = .8
+point_size = 8
+
+mycolorpalette = c('gold2', 'darkmagenta')
+
+# RSEO PC1
+data2plot = rseo_pc1 %>% filter(electrode == 'E2')
+ggplot(data = data2plot, aes(x = block, y = d)) +
+  geom_line(aes(group = comparison), alpha = line_alpha, linewidth = .8) +
+  geom_point(alpha = point_alpha, size = point_size+1, colour = "black") +
+  geom_point(aes(col = comparison), alpha = point_alpha, size = point_size) +
+  labs(x = "\nblock", y = "d\n", title = 'Eyes open', subtitle = 'Cohen\'s d for PC1\n') +
+  scale_y_continuous(limits = c(-1.5, 1.5), 
+                     breaks = c(-1.5, -.5, .5, 1.5),
+                     labels = c(-1.5, -.5, .5, 1.5)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = ax_title ),
+        plot.subtitle = element_text(size = ax_title),
+    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
+    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
+    legend.title = element_blank(),
+    legend.text = element_text(size = ax_txt),
+    aspect.ratio = a_ratio)
+
+ggsave(filename = file.path(rsopen_plotpath,"d","09_adjH_d_Hrec-PC1_acrossblocks.pdf"))
+
+
+# RSEO PC4
+data2plot = rseo_pc4 %>% filter(electrode == 'E2')
+ggplot(data = data2plot, aes(x = block, y = d)) +
+  geom_line(aes(group = comparison), alpha = line_alpha, linewidth = .8) +
+  geom_point(alpha = point_alpha, size = point_size+1, colour = "black") +
+  geom_point(aes(col = comparison), alpha = point_alpha, size = point_size) +
+  labs(x = "\nblock", y = "d\n", title = 'Eyes open', subtitle = 'Cohen\'s d for PC4\n') +
+  scale_y_continuous(limits = c(-1.5, 1.5), 
+                     breaks = c(-1.5, -.5, .5, 1.5),
+                     labels = c(-1.5, -.5, .5, 1.5)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = ax_title ),
+        plot.subtitle = element_text(size = ax_title),
+    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
+    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
+    legend.title = element_blank(),
+    legend.text = element_text(size = ax_txt),
+    aspect.ratio = a_ratio)
+
+ggsave(filename = file.path(rsopen_plotpath,"d","09_adjH_d_Hrec-PC4_acrossblocks.pdf"))
+
+
+# RSEO PC1+PC4
+data2plot = rseo_pc1pc4
+ggplot(data = data2plot, aes(x = block, y = d)) +
+  geom_line(aes(group = interaction(comparison, electrode)), alpha = .5) +
+  #geom_point(color = 'Black', alpha = 1, size = 8) +
+  geom_point(aes(col = comparison), alpha = 0.3, size = 3) +
+  geom_smooth(data = data2plot, aes(group = comparison), color = 'Black', alpha = .3, linewidth = 3, method = lm) +
+  geom_smooth(data = data2plot, aes(group = comparison, color = comparison),  alpha = .3, linewidth = 2, method = lm) +
+  labs(x = "\nblock", y = "d\n", title = 'Eyes open', subtitle = 'Cohen\'s d for PC1+PC4\n') +
+  scale_y_continuous(limits = c(-1.5, 1.5),
+                     breaks = c(-1.5, -.5, .5, 1.5),
+                     labels = c(-1.5, -.5, .5, 1.5)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = ax_title ),
+        plot.subtitle = element_text(size = ax_title),
+    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
+    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
+    legend.title = element_blank(),
+    legend.text = element_text(size = ax_txt),
+    aspect.ratio = a_ratio)
+
+ggsave(filename = file.path(rsopen_plotpath,"d","09_adjH_d_Hrec-PC1PC4_acrossblocks.pdf"))
+
+
+# RSEC PC1
+data2plot = rsec_pc1 %>% filter(electrode == 'E2')
+ggplot(data = data2plot, aes(x = block, y = d)) +
+  geom_line(aes(group = comparison), alpha = line_alpha, linewidth = .8) +
+  geom_point(alpha = point_alpha, size = point_size+1, colour = "black") +
+  geom_point(aes(col = comparison), alpha = point_alpha, size = point_size) +
+  labs(x = "\nblock", y = "d\n", title = 'Eyes closed', subtitle = 'Cohen\'s d for PC1\n') +
+  scale_y_continuous(limits = c(-1.5, 1.5), 
+                     breaks = c(-1.5, -.5, .5, 1.5),
+                     labels = c(-1.5, -.5, .5, 1.5)) +
+  scale_colour_manual(values = mycolorpalette) +
+  theme_bw() + 
+  theme(plot.title = element_text(size = ax_title ),
+        plot.subtitle = element_text(size = ax_title),
+    axis.title.x = element_text(size = ax_title),  axis.text.x = element_text(size = ax_txt), 
+    axis.title.y = element_text(size = ax_title), axis.text.y = element_text(size = ax_txt),
+    legend.title = element_blank(),
+    legend.text = element_text(size = ax_txt),
+    aspect.ratio = a_ratio)
+
+ggsave(filename = file.path(rsclosed_plotpath,"d","09_adjH_d_Hrec-PC1_acrossblocks.pdf"))
+```

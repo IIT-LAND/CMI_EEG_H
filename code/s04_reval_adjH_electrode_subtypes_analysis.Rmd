@@ -1,0 +1,512 @@
+---
+title: "CMI reval H Resting State electrode Subtypes Analysis TD vs ASD Males"
+author: "NatashaBertelsen"
+date: "10/01/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load packages
+
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse","report","lmerTest", "stringr")
+source(here("code","cmi_utils.R"))
+```
+
+### Set fixed parameters
+```{r, warning=FALSE, message=FALSE}
+fdr_thresh = 0.05
+nreps_sim = 10000
+colors4plots = c("#20b2aa", "#FDE725FF", "#8B008B")
+```
+
+### Set paths
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+tidypath = here("data","tidy")
+resultpath = here("results", "reval", "global")
+plotpath = here("plots", "reval", "global")
+rsopen_plotpath = file.path(plotpath, "rsopen")
+rsclosed_plotpath = file.path(plotpath, "rsclosed")
+```
+
+### Load data and filter
+```{r, warning=FALSE, message=FALSE}
+tidy_data = read.csv(file.path(tidypath,"tidy_adjH_revalsubgroups_global.csv"))
+```
+
+### Prepare the data for channel based analyses
+```{r, warning = FALSE, message = FALSE}
+# create RSOPEN dataframe
+rsopen_H_pheno = tidy_data %>%
+  filter(condition == "open") %>%
+  select(subid, dx, dx1_short, age, release_number, study_site, 
+         wais_fiq, wasi_fiq, wisc_fiq,
+         rsopen_subgroup_glob, 
+         electrode, block, H) %>% 
+  distinct()
+
+# make a subtype and fiq variable from uniting different variables together
+rsopen_H_pheno = rsopen_H_pheno %>% 
+  unite(subtype, dx1_short,rsopen_subgroup_glob, na.rm = TRUE) %>%
+  unite(fiq, wais_fiq, wasi_fiq,wisc_fiq, na.rm = TRUE)
+rsopen_H_pheno$fiq = as.numeric(rsopen_H_pheno$fiq)
+
+# make TD the first level so that all t-stats are relative to that
+level_order <- c('TD', 'ASD_1', 'ASD_2') 
+rsopen_H_pheno$subtype = factor(rsopen_H_pheno$subtype, levels = level_order,
+                                labels = c("td", "a1", "a2"))
+
+# create RSCLOSED dataframe
+rsclosed_H_pheno = tidy_data %>%
+  filter(condition == "closed") %>%
+  select(subid, dx, dx1_short, age, release_number, study_site, 
+         wais_fiq, wasi_fiq, wisc_fiq,
+         rsclosed_subgroup_glob, 
+         electrode, block, H) %>% 
+  distinct()
+
+# make a subtype and fiq variable from uniting different variables together
+rsclosed_H_pheno = rsclosed_H_pheno %>% 
+  unite(subtype, dx1_short,rsclosed_subgroup_glob, na.rm = TRUE) %>%
+  unite(fiq, wais_fiq, wasi_fiq,wisc_fiq, na.rm = TRUE)
+rsclosed_H_pheno$fiq = as.numeric(rsclosed_H_pheno$fiq)
+
+# make TD the first level so that all t-stats are relative to that
+level_order <- c('TD', 'ASD_1', 'ASD_2') 
+rsclosed_H_pheno$subtype = factor(rsclosed_H_pheno$subtype, levels = level_order,
+                                  labels = c("td", "a1", "a2"))
+
+# Create results dataframe
+electrode_names = unique(rsopen_H_pheno$electrode)
+electrode_names = str_sort(electrode_names, numeric = TRUE)
+electrode_names = electrode_names[c(2:length(electrode_names), 1)]
+
+output_cols = c("Electrode",
+                "subtype_F", "subtype_p", "subtype_fdr",
+                "age_F", "age_p", "age_fdr",
+                "subtypeXage_F", "subtypeXage_p", "subtypeXage_fdr",
+                "td_vs_a1_t", "td_vs_a1_p", "td_vs_a1_fdr",
+                "td_vs_a2_t", "td_vs_a2_p", "td_vs_a2_fdr",
+                "a1_vs_a2_b1_d", "a1_vs_a2_b2_d", "a1_vs_a2_b3_d",
+                "a1_vs_a2_b4_d", "a1_vs_a2_b5_d", "a1_vs_a2_mean_d",
+                "td_vs_a1_b1_d", "td_vs_a1_b2_d", "td_vs_a1_b3_d",
+                "td_vs_a1_b4_d", "td_vs_a1_b5_d", "td_vs_a1_mean_d",
+                "td_vs_a2_b1_d", "td_vs_a2_b2_d", "td_vs_a2_b3_d",
+                "td_vs_a2_b4_d", "td_vs_a2_b5_d", "td_vs_a2_mean_d"
+)
+
+rsopen_output_res = data.frame(matrix(nrow = length(electrode_names), ncol = length(output_cols)))
+rownames(rsopen_output_res) = electrode_names
+colnames(rsopen_output_res) = output_cols
+
+rsclosed_output_res = data.frame(matrix(nrow = length(electrode_names), ncol = length(output_cols)))
+rownames(rsclosed_output_res) = electrode_names
+colnames(rsclosed_output_res) = output_cols
+```
+
+# Run analysis on eyes open
+``` {r, warning = FALSE, MESSAGE = FALSE}
+
+for (electr in electrode_names){
+  print(electr)
+  
+  # prepare data for the modeling and plotting
+  data4model = rsopen_H_pheno %>% filter(electrode == electr) 
+  
+  # scale data
+  vars2scale = c("H","age")
+  scaled_data = scale_variables(data4model[,c("subid","subtype","block","study_site",vars2scale)], vars2scale)
+  
+  # run linear mixed effect model on the three groups
+  form2use = as.formula("H ~ subtype*age + (1|study_site) + (block|subid)")
+  ctrl = lmerControl(optCtrl = list(maxfun = nreps_sim), 
+                     check.conv.singular = .makeCC(action = "ignore",  tol = 1e-4),
+                     check.nobs.vs.nRE= "ignore")
+  m_allgrps = eval(substitute(lmer(formula = form2use, data = scaled_data, na.action = na.omit, control = ctrl)))
+  
+  # grab aov and summary on the model
+  aov_res = anova(m_allgrps)
+  lme_res = summary(m_allgrps)
+  
+  # run linear mixed effect model on td v a1
+  scaled_data_tdva1 = scaled_data %>% filter(subtype != "a2")
+  m_tdva1 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva1, na.action = na.omit, control = ctrl)))
+  lme_res_tdva1 = summary(m_tdva1)
+  
+  # run linear mixed effect model on td v a1
+  scaled_data_tdva2 = scaled_data %>% filter(subtype != "a1")
+  m_tdva2 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva2, na.action = na.omit, control = ctrl)))
+  lme_res_tdva2 = summary(m_tdva2)
+  
+ 
+  # calculate effect sizes
+  scaled_data$H = as.numeric(scaled_data$H)
+  
+  # compute effect sizes for every block - plot with effect sizes on the y and blocks on the x
+  a1_v_a2_H_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$H)
+  a1_v_a2_H_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$H)
+  a1_v_a2_H_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$H)
+  a1_v_a2_H_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$H)
+  a1_v_a2_H_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$H)
+  a1_v_a2_H_mean_d = mean(c(a1_v_a2_H_b1_d, a1_v_a2_H_b2_d, a1_v_a2_H_b3_d, a1_v_a2_H_b4_d, a1_v_a2_H_b5_d))
+  
+  td_v_a1_H_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$H)
+  td_v_a1_H_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$H)
+  td_v_a1_H_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$H)
+  td_v_a1_H_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$H)
+  td_v_a1_H_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$H)
+  td_v_a1_H_mean_d = mean(c(td_v_a1_H_b1_d, td_v_a1_H_b2_d, td_v_a1_H_b3_d, td_v_a1_H_b4_d, td_v_a1_H_b5_d))
+  
+  
+  td_v_a2_H_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$H)
+  td_v_a2_H_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$H)
+  td_v_a2_H_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$H)
+  td_v_a2_H_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$H)
+  td_v_a2_H_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$H)
+  td_v_a2_H_mean_d = mean(c(td_v_a2_H_b1_d, td_v_a2_H_b2_d, td_v_a2_H_b3_d, td_v_a2_H_b4_d, td_v_a2_H_b5_d))
+  
+  
+  # save output 
+  rsopen_output_res[electr,"Electrode"] = electr
+  
+  rsopen_output_res[electr,"subtype_F"] = aov_res["subtype","F value"]  
+  rsopen_output_res[electr,"subtype_p"] = aov_res["subtype","Pr(>F)"] 
+  
+  rsopen_output_res[electr,"age_F"] = aov_res["age","F value"]  
+  rsopen_output_res[electr,"age_p"] = aov_res["age","Pr(>F)"]
+  
+  rsopen_output_res[electr,"subtypeXage_F"] = aov_res["subtype:age","F value"]
+  rsopen_output_res[electr,"subtypeXage_p"] = aov_res["subtype:age","Pr(>F)"]  
+  
+  rsopen_output_res[electr,"td_vs_a1_t"] = lme_res_tdva1$coefficients["subtypea1","t value"] 
+  rsopen_output_res[electr,"td_vs_a1_p"] = lme_res_tdva1$coefficients["subtypea1","Pr(>|t|)"] 
+  
+  rsopen_output_res[electr,"td_vs_a2_t"] = lme_res_tdva2$coefficients["subtypea2","t value"] 
+  rsopen_output_res[electr,"td_vs_a2_p"] = lme_res_tdva2$coefficients["subtypea2","Pr(>|t|)"]
+  
+  rsopen_output_res[electr,"a1_vs_a2_b1_d"] = a1_v_a2_H_b1_d
+  rsopen_output_res[electr,"a1_vs_a2_b2_d"] = a1_v_a2_H_b2_d
+  rsopen_output_res[electr,"a1_vs_a2_b3_d"] = a1_v_a2_H_b3_d
+  rsopen_output_res[electr,"a1_vs_a2_b4_d"] = a1_v_a2_H_b4_d
+  rsopen_output_res[electr,"a1_vs_a2_b5_d"] = a1_v_a2_H_b5_d
+  rsopen_output_res[electr,"a1_vs_a2_mean_d"] = a1_v_a2_H_mean_d
+  
+  rsopen_output_res[electr,"td_vs_a1_b1_d"] = td_v_a1_H_b1_d
+  rsopen_output_res[electr,"td_vs_a1_b2_d"] = td_v_a1_H_b2_d
+  rsopen_output_res[electr,"td_vs_a1_b3_d"] = td_v_a1_H_b3_d
+  rsopen_output_res[electr,"td_vs_a1_b4_d"] = td_v_a1_H_b4_d
+  rsopen_output_res[electr,"td_vs_a1_b5_d"] = td_v_a1_H_b5_d
+  rsopen_output_res[electr,"td_vs_a1_mean_d"] = td_v_a1_H_mean_d
+  
+  rsopen_output_res[electr,"td_vs_a2_b1_d"] = td_v_a2_H_b1_d
+  rsopen_output_res[electr,"td_vs_a2_b2_d"] = td_v_a2_H_b2_d
+  rsopen_output_res[electr,"td_vs_a2_b3_d"] = td_v_a2_H_b3_d
+  rsopen_output_res[electr,"td_vs_a2_b4_d"] = td_v_a2_H_b4_d
+  rsopen_output_res[electr,"td_vs_a2_b5_d"] = td_v_a2_H_b5_d
+  rsopen_output_res[electr,"td_vs_a2_mean_d"] = td_v_a2_H_mean_d
+  
+  # ## UNCOMMENT TO GET PLOTS FOR EACH electrode
+  # ## Plotting electrode H values
+  # # plot H for each electrode for each block
+  # p = ggplot(data =  data4model, aes(x = subtype, y = H)) + facet_grid(block ~ ., labeller = label_both) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.2, size = 1 , width = .1) +
+  #   geom_boxplot(alpha = 0, width = .4, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "H\n", title = electr, subtitle = "H values by subtype by block\n")  +
+  #   scale_x_discrete(labels=c('td', 'a1', 'a2')) +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 8),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"adjH",sprintf("04_adjH_byblock_%s.pdf",electr)))
+  # 
+  # # plot H for each electrode and across all blocks
+  # p = ggplot(data = data4model, aes(x = subtype, y = H)) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.15, size = 2 , width = .1) +
+  #   geom_boxplot(alpha = 0, width = .4, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "H\n", title = electr, subtitle = "H values by subtype\n")  +
+  #   scale_x_discrete(labels=c('td', 'a1', 'a2')) +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 10),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.5)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"adjH",sprintf("04_adjH_blockscollapsed_%s.pdf",electr)))
+  # 
+  # # plot against age across blocks
+  # p = ggplot(data = data4model, aes(x = age, y = H, colour = subtype)) + facet_grid(block ~ .,  labeller = label_both) +
+  #   geom_point(alpha=0.1, size = 1.5) + geom_smooth(method = lm) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "H\n", title = electr, subtitle = "H values across age for each block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10), axis.text.y = element_text(size = 8),
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"adjH",sprintf("04_adjH_age_%s.pdf",electr)))
+  # 
+  # # plot H against age and collapsing blocks
+  # p = ggplot(data = data4model, aes(x = age, y = H, colour = subtype)) +
+  #   geom_point(alpha = 0.1, size = 2) + geom_smooth(method = lm) +
+  #  scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "H\n", title = electr, subtitle = "H values across age\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10), axis.text.y = element_text(size = 10),
+  #         #legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"adjH",sprintf("04_adjH_age2_%s.pdf",electr)))
+
+}  
+```
+
+### Run analysis on rs eyes closed
+```{r, warning=FALSE, message=FALSE}
+
+for (electr in electrode_names){
+  print(electr)
+  
+  # prepare data for the modeling and plotting
+  data4model = rsclosed_H_pheno %>% filter(electrode == electr) 
+  
+  # scale data
+  vars2scale = c("H","age")
+  scaled_data = scale_variables(data4model[,c("subid","subtype","block","study_site",vars2scale)], vars2scale)
+  
+  # run linear mixed effect model
+  form2use = as.formula("H ~ subtype*age + (1|study_site) + (block|subid)")
+  ctrl = lmerControl(optCtrl=list(maxfun=10000), 
+                     check.conv.singular = .makeCC(action = "ignore",  tol = 1e-4),
+                     check.nobs.vs.nRE= "ignore")
+  m_allgrps = eval(substitute(lmer(formula = form2use, data = scaled_data, na.action = na.omit, control = ctrl)))
+  
+  # grab aov and summary on the model
+  aov_res = anova(m_allgrps)
+  lme_res = summary(m_allgrps)
+  
+   # run linear mixed effect model on td v a1
+  scaled_data_tdva1 = scaled_data %>% filter(subtype != "a2")
+  m_tdva1 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva1, na.action = na.omit, control = ctrl)))
+  lme_res_tdva1 = summary(m_tdva1)
+  
+  # run linear mixed effect model on td v a1
+  scaled_data_tdva2 = scaled_data %>% filter(subtype != "a1")
+  m_tdva2 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva2, na.action = na.omit, control = ctrl)))
+  lme_res_tdva2 = summary(m_tdva2)
+  
+  #effect sizes
+  scaled_data$H = as.numeric(scaled_data$H)
+  
+  # calculate effect sizes - compute d for every block
+  a1_v_a2_H_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$H)
+  a1_v_a2_H_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$H)
+  a1_v_a2_H_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$H)
+  a1_v_a2_H_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$H)
+  a1_v_a2_H_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$H, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$H)
+  a1_v_a2_H_mean_d = mean(c(a1_v_a2_H_b1_d, a1_v_a2_H_b2_d, a1_v_a2_H_b3_d, a1_v_a2_H_b4_d, a1_v_a2_H_b5_d))
+  
+  td_v_a1_H_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$H)
+  td_v_a1_H_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$H)
+  td_v_a1_H_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$H)
+  td_v_a1_H_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$H)
+  td_v_a1_H_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$H)
+  td_v_a1_H_mean_d = mean(c(td_v_a1_H_b1_d, td_v_a1_H_b2_d, td_v_a1_H_b3_d, td_v_a1_H_b4_d, td_v_a1_H_b5_d))
+  
+  
+  td_v_a2_H_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$H)
+  td_v_a2_H_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$H)
+  td_v_a2_H_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$H)
+  td_v_a2_H_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$H)
+  td_v_a2_H_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$H, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$H)
+  td_v_a2_H_mean_d = mean(c(td_v_a2_H_b1_d, td_v_a2_H_b2_d, td_v_a2_H_b3_d, td_v_a2_H_b4_d, td_v_a2_H_b5_d))
+  
+  # save output 
+  rsclosed_output_res[electr,"Electrode"] = electr
+  
+  rsclosed_output_res[electr,"subtype_F"] = aov_res["subtype","F value"]  
+  rsclosed_output_res[electr,"subtype_p"] = aov_res["subtype","Pr(>F)"]  
+  
+  rsclosed_output_res[electr,"age_F"] = aov_res["age","F value"]  
+  rsclosed_output_res[electr,"age_p"] = aov_res["age","Pr(>F)"] 
+  
+  rsclosed_output_res[electr,"subtypeXage_F"] = aov_res["subtype:age","F value"]  
+  rsclosed_output_res[electr,"subtypeXage_p"] = aov_res["subtype:age","Pr(>F)"]
+  
+  rsclosed_output_res[electr,"td_vs_a1_t"] = lme_res_tdva1$coefficients["subtypea1","t value"] 
+  rsclosed_output_res[electr,"td_vs_a1_p"] = lme_res_tdva1$coefficients["subtypea1","Pr(>|t|)"] 
+  
+  rsclosed_output_res[electr,"td_vs_a2_t"] = lme_res_tdva2$coefficients["subtypea2","t value"] 
+  rsclosed_output_res[electr,"td_vs_a2_p"] = lme_res_tdva2$coefficients["subtypea2","Pr(>|t|)"]
+  
+  rsclosed_output_res[electr,"a1_vs_a2_b1_d"] = a1_v_a2_H_b1_d
+  rsclosed_output_res[electr,"a1_vs_a2_b2_d"] = a1_v_a2_H_b2_d
+  rsclosed_output_res[electr,"a1_vs_a2_b3_d"] = a1_v_a2_H_b3_d
+  rsclosed_output_res[electr,"a1_vs_a2_b4_d"] = a1_v_a2_H_b4_d
+  rsclosed_output_res[electr,"a1_vs_a2_b5_d"] = a1_v_a2_H_b5_d
+  rsclosed_output_res[electr,"a1_vs_a2_mean_d"] = a1_v_a2_H_mean_d
+  
+  rsclosed_output_res[electr,"td_vs_a1_b1_d"] = td_v_a1_H_b1_d
+  rsclosed_output_res[electr,"td_vs_a1_b2_d"] = td_v_a1_H_b2_d
+  rsclosed_output_res[electr,"td_vs_a1_b3_d"] = td_v_a1_H_b3_d
+  rsclosed_output_res[electr,"td_vs_a1_b4_d"] = td_v_a1_H_b4_d
+  rsclosed_output_res[electr,"td_vs_a1_b5_d"] = td_v_a1_H_b5_d
+  rsclosed_output_res[electr,"td_vs_a1_mean_d"] = td_v_a1_H_mean_d
+  
+  rsclosed_output_res[electr,"td_vs_a2_b1_d"] = td_v_a2_H_b1_d
+  rsclosed_output_res[electr,"td_vs_a2_b2_d"] = td_v_a2_H_b2_d
+  rsclosed_output_res[electr,"td_vs_a2_b3_d"] = td_v_a2_H_b3_d
+  rsclosed_output_res[electr,"td_vs_a2_b4_d"] = td_v_a2_H_b4_d
+  rsclosed_output_res[electr,"td_vs_a2_b5_d"] = td_v_a2_H_b5_d
+  rsclosed_output_res[electr,"td_vs_a2_mean_d"] = td_v_a2_H_mean_d
+  
+  # ## UNCOMMENT TO GET PLOTS FOR EACH ELECTRODE
+  # ## Plotting electrode H values
+  # # plot H for each electrode for each block
+  # p = ggplot(data =  data4model, aes(x = subtype, y = H)) + facet_grid(block ~ ., labeller = label_both) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.2, size = 1 , width = .1) +
+  #   geom_boxplot(alpha = 0, width = .4, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "H\n", title = electr, subtitle = "H values by subtype by block\n")  +
+  #   scale_x_discrete(labels=c('td', 'a1', 'a2')) +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 8),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"adjH",sprintf("04_adjH_byblock_%s.pdf",electr)))
+  # 
+  # # plot H for each electrode and across all blocks
+  # p = ggplot(data = data4model, aes(x = subtype, y = H)) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.15, size = 2 , width = .1) +
+  #   geom_boxplot(alpha = 0, width = .4, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "H\n", title = electr, subtitle = "H values by subtype\n")  +
+  #   scale_x_discrete(labels=c('td', 'a1', 'a2')) +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 10),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.5)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"adjH",sprintf("04_adjH_blockscollapsed_%s.pdf",electr)))
+  # 
+  # # plot against age across blocks
+  # p = ggplot(data = data4model, aes(x = age, y = H, colour = subtype)) + facet_grid(block ~ .,  labeller = label_both) +
+  #   geom_point(alpha=0.1, size = 1.5) + geom_smooth(method = lm) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "H\n", title = electr, subtitle = "H values across age for each block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10), axis.text.y = element_text(size = 8),
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"adjH",sprintf("04_adjH_age_%s.pdf",electr)))
+  # 
+  # # plot H against age and collapsing blocks
+  # p = ggplot(data = data4model, aes(x = age, y = H, colour = subtype)) +
+  #   geom_point(alpha = 0.1, size = 2) + geom_smooth(method = lm) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "H\n", title = electr, subtitle = "H values across age\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10), axis.text.y = element_text(size = 10),
+  #         #legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"adjH",sprintf("04_adjH_age2_%s.pdf",electr)))
+  
+}
+```
+
+### Compute FDR and show results
+``` {r, warning = FALSE, message = FALSE}
+
+rsopen_output_res[,"subtype_fdr"] = p.adjust(rsopen_output_res[,"subtype_p"], method = "fdr")  
+rsopen_output_res[,"age_fdr"] = p.adjust(rsopen_output_res[,"age_p"], method = "fdr")  
+rsopen_output_res[,"subtypeXage_fdr"] = p.adjust(rsopen_output_res[,"subtypeXage_p"], method = "fdr")
+rsopen_output_res[,"td_vs_a1_fdr"] = p.adjust(rsopen_output_res[,"td_vs_a1_p"], method = "fdr")
+rsopen_output_res[,"td_vs_a2_fdr"] = p.adjust(rsopen_output_res[,"td_vs_a2_p"], method = "fdr")
+
+rsclosed_output_res[,"subtype_fdr"] = p.adjust(rsclosed_output_res[,"subtype_p"], method = "fdr")  
+rsclosed_output_res[,"age_fdr"] = p.adjust(rsclosed_output_res[,"age_p"], method = "fdr")  
+rsclosed_output_res[,"subtypeXage_fdr"] = p.adjust(rsclosed_output_res[,"subtypeXage_p"], method = "fdr")
+rsclosed_output_res[,"td_vs_a1_fdr"] = p.adjust(rsclosed_output_res[,"td_vs_a1_p"], method = "fdr")
+rsclosed_output_res[,"td_vs_a2_fdr"] = p.adjust(rsclosed_output_res[,"td_vs_a2_p"], method = "fdr")
+
+
+# show results for Resting State Eyes Open
+rsopen_output_res
+
+# show results for Resting State Eyes Closed
+rsclosed_output_res
+```
+
+
+### Save to file
+```{r, warning = FALSE, message = FALSE}
+
+# save results to csv file
+write.csv(rsopen_output_res, file = file.path(resultpath,"04_adjH_rsopen_electrodes_subtype*age.csv"))
+write.csv(rsclosed_output_res, file = file.path(resultpath,"04_adjH_rsclosed_electrodes_subtype*age.csv"))
+```
+
+### Plot H over age
+```{r, warning = FALSE, message = FALSE}
+ #rs rsopen
+ggplot(data = rsopen_H_pheno, aes(x = age, y = H)) + facet_grid(.~ block, labeller = label_both) +
+  geom_point(alpha = 0.05, size = .1, color = 'burlywood1') + geom_smooth(method = lm, color = "pink4", level = .95) +
+  labs(x = "\nage", y = "H\n", title = 'RSEO', subtitle = "H values across age for each block\n")  +
+  theme_bw() +
+  theme(plot.title = element_text(size = 15),
+        plot.subtitle = element_text(size = 14),
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+        legend.position = "none",
+        aspect.ratio = 1)
+
+ggsave(filename = file.path(rsopen_plotpath,"adjH", "04_adjH_age_allElectrodes_facetBlocks.png"))
+
+#rsclosed
+ggplot(data = rsclosed_H_pheno, aes(x = age, y = H)) + facet_grid(.~ block, labeller = label_both) +
+  geom_point(alpha = 0.05, size = .1, color = 'burlywood1') + geom_smooth(method = lm, color = "pink4", level = .95) +
+  labs(x = "\nage", y = "H\n", title = 'RSEC', subtitle = "H values across age for each block\n")  +
+  theme_bw() +
+  theme(plot.title = element_text(size = 15),
+        plot.subtitle = element_text(size = 14),
+        axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+        axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+        legend.position = "none",
+        aspect.ratio = 1)
+
+ggsave(filename = file.path(rsclosed_plotpath,"adjH","04_adjH_age_allElectrodes_facetBlocks.png"))
+```
+
+
+

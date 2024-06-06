@@ -1,0 +1,502 @@
+---
+title: "CMI reval H PCA subtype Analysis TD vs Autistic males"
+author: "NatashaBertelsen"
+date: "Oct/01/2023"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+### Load libraries and read in data
+```{r, warning=FALSE, message=FALSE}
+library(easypackages)
+libraries("here","tidyverse","report","lmerTest", "stringr", "RColorBrewer", "ggdist", "ggpubr")
+source(here("code","cmi_utils.R"))
+```
+
+### Set fixed parameters
+```{r, warning=FALSE, message=FALSE}
+fdr_thresh = 0.05
+nreps_sim = 10000
+colors4plots = c("#20b2aa", "#FDE725FF", "#8B008B")
+```
+
+### Load in data
+```{r, warning=FALSE, message=FALSE}
+codepath = here("code")
+tidypath = here("data","tidy")
+plotpath = here("plots", "reval", "global")
+resultpath = here("results", "reval", "global")
+rsopen_plotpath = file.path(plotpath, "rsopen")
+rsclosed_plotpath = file.path(plotpath, "rsclosed")
+
+rseo_data = read.csv(file.path(tidypath,"tidy_adjH_rsopen_PCA.csv"))
+rsec_data = read.csv(file.path(tidypath,"tidy_adjH_rsclosed_PCA.csv"))
+```
+
+# fix the subtypes and relevel
+```{r, warning=FALSE, message=FALSE}
+# make TD the first level so that all t-stats are relative to that
+level_order <- c('TD', 'ASD_1', 'ASD_2') 
+
+# eyes open
+# make a subtype variable from uniting different variables together
+rseo_data = rseo_data %>% 
+  unite(subtype, dx1_short, rsopen_subgroup_glob, na.rm = TRUE)
+rseo_data$subtype[rseo_data$subtype == "TD_0"] = "TD"
+
+# relevel data for plotting
+rseo_data$subtype = factor(rseo_data$subtype, levels = level_order,
+                           labels = c("td", "a1", "a2"))
+
+# eyes closed
+# make a subtype variable from uniting different variables together
+rsec_data = rsec_data %>% 
+  unite(subtype, dx1_short,rsclosed_subgroup_glob, na.rm = TRUE)
+rsec_data$subtype[rsec_data$subtype == "TD_0"] = "TD"
+
+# relevel data for plotting
+rsec_data$subtype = factor(rsec_data$subtype, levels = level_order,
+                           labels = c("td", "a1", "a2"))
+```
+
+### Main Analysis
+```{r, warning=FALSE, message=FALSE}
+# get list of principal components to loop through
+principal_components = unique(rseo_data$PC)
+principal_components = str_sort(principal_components, numeric = TRUE)
+
+# create df where to save results
+output_cols = c("principal_component",
+                "subtype_F", "subtype_p", "subtype_fdr",
+                "age_F", "age_p", "age_fdr",
+                "subtypeXage_F", "subtypeXage_p", "subtypeXage_fdr",
+                "td_vs_a1_t", "td_vs_a1_p", "td_vs_a1_fdr",
+                "td_vs_a2_t", "td_vs_a2_p", "td_vs_a2_fdr",
+                
+                "a1_vs_a2_b1_d", "a1_vs_a2_b2_d", "a1_vs_a2_b3_d",
+                "a1_vs_a2_b4_d", "a1_vs_a2_b5_d", "a1_vs_a2_mean_d",
+                "td_vs_a1_b1_d", "td_vs_a1_b2_d", "td_vs_a1_b3_d",
+                "td_vs_a1_b4_d", "td_vs_a1_b5_d", "td_vs_a1_mean_d",
+                "td_vs_a2_b1_d", "td_vs_a2_b2_d", "td_vs_a2_b3_d",
+                "td_vs_a2_b4_d", "td_vs_a2_b5_d", "td_vs_a2_mean_d"
+)
+
+rsopen_output_res = data.frame(matrix(nrow = length(principal_components), ncol = length(output_cols)))
+rownames(rsopen_output_res) = principal_components
+colnames(rsopen_output_res) = output_cols
+
+rsclosed_output_res = data.frame(matrix(nrow = length(principal_components), ncol = length(output_cols)))
+rownames(rsclosed_output_res) = principal_components
+colnames(rsclosed_output_res) = output_cols
+
+for (pc in principal_components){
+  #=============================================================================
+  # resting state eyes open
+  # prepare data for the modeling and plotting
+  data4model = rseo_data %>% filter(PC==pc) 
+  
+  # scale data
+  vars2scale = c("Score","age")
+  scaled_data = scale_variables(data4model[,c("subid","subtype", "study_site", "block",vars2scale)],vars2scale)
+  
+  # run linear mixed effect model
+  form2use = as.formula("Score ~ subtype*age + (1|study_site) + (block|subid)")
+  ctrl = lmerControl(optCtrl=list(maxfun=nreps_sim), 
+                     check.conv.singular = .makeCC(action = "ignore",  tol = 1e-4),
+                     check.nobs.vs.nRE= "ignore")
+  m_allgrps = eval(substitute(lmer(formula = form2use, data = scaled_data, na.action = na.omit, control = ctrl)))
+  
+  # grab aov and summary on the model
+  aov_res = anova(m_allgrps)
+  lme_res = summary(m_allgrps)
+  
+  # run linear mixed effect model on td v a1
+  scaled_data_tdva1 = scaled_data %>% filter(subtype != "a2")
+  m_tdva1 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva1, na.action = na.omit, control = ctrl)))
+  lme_res_tdva1 = summary(m_tdva1)
+  
+  # run linear mixed effect model on td v a1
+  scaled_data_tdva2 = scaled_data %>% filter(subtype != "a1")
+  m_tdva2 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva2, na.action = na.omit, control = ctrl)))
+  lme_res_tdva2 = summary(m_tdva2)
+  
+  # calculate effect sizes
+  scaled_data$Score = as.numeric(scaled_data$Score) # if inputted as a matrix the function breaks
+  
+  a1_v_a2_score_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$Score)
+  a1_v_a2_score_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$Score)
+  a1_v_a2_score_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$Score)
+  a1_v_a2_score_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$Score)
+  a1_v_a2_score_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$Score)
+  a1_v_a2_score_mean_d = mean(c(a1_v_a2_score_b1_d, a1_v_a2_score_b2_d, a1_v_a2_score_b3_d, a1_v_a2_score_b4_d, a1_v_a2_score_b5_d))
+  
+  td_v_a1_score_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$Score)
+  td_v_a1_score_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$Score)
+  td_v_a1_score_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$Score)
+  td_v_a1_score_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$Score)
+  td_v_a1_score_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$Score)
+  td_v_a1_score_mean_d = mean(c(td_v_a1_score_b1_d, td_v_a1_score_b2_d, td_v_a1_score_b3_d, td_v_a1_score_b4_d, td_v_a1_score_b5_d))
+  
+  td_v_a2_score_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$Score)
+  td_v_a2_score_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$Score)
+  td_v_a2_score_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$Score)
+  td_v_a2_score_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$Score)
+  td_v_a2_score_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$Score)
+  td_v_a2_score_mean_d = mean(c(td_v_a2_score_b1_d, td_v_a2_score_b2_d, td_v_a2_score_b3_d, td_v_a2_score_b4_d, td_v_a2_score_b5_d))
+  
+  
+  # SAVING OUTPUT TO DF
+  rsopen_output_res[pc,"principal_component"] = pc
+  
+  rsopen_output_res[pc,"subtype_F"] = aov_res["subtype","F value"]  
+  rsopen_output_res[pc,"subtype_p"] = aov_res["subtype","Pr(>F)"] 
+  
+  rsopen_output_res[pc,"age_F"] = aov_res["age","F value"]  
+  rsopen_output_res[pc,"age_p"] = aov_res["age","Pr(>F)"]  
+  
+  rsopen_output_res[pc,"subtypeXage_F"] = aov_res["subtype:age","F value"]
+  rsopen_output_res[pc,"subtypeXage_p"] = aov_res["subtype:age","Pr(>F)"] 
+  
+  rsopen_output_res[pc,"td_vs_a1_t"] = lme_res_tdva1$coefficients["subtypea1","t value"] 
+  rsopen_output_res[pc,"td_vs_a1_p"] = lme_res_tdva1$coefficients["subtypea1","Pr(>|t|)"] 
+  
+  rsopen_output_res[pc,"td_vs_a2_t"] = lme_res_tdva2$coefficients["subtypea2","t value"] 
+  rsopen_output_res[pc,"td_vs_a2_p"] = lme_res_tdva2$coefficients["subtypea2","Pr(>|t|)"]
+  
+  rsopen_output_res[pc,"a1_vs_a2_b1_d"] = a1_v_a2_score_b1_d
+  rsopen_output_res[pc,"a1_vs_a2_b2_d"] = a1_v_a2_score_b2_d
+  rsopen_output_res[pc,"a1_vs_a2_b3_d"] = a1_v_a2_score_b3_d
+  rsopen_output_res[pc,"a1_vs_a2_b4_d"] = a1_v_a2_score_b4_d
+  rsopen_output_res[pc,"a1_vs_a2_b5_d"] = a1_v_a2_score_b5_d
+  rsopen_output_res[pc,"a1_vs_a2_mean_d"] = a1_v_a2_score_mean_d
+  
+  rsopen_output_res[pc,"td_vs_a1_b1_d"] = td_v_a1_score_b1_d
+  rsopen_output_res[pc,"td_vs_a1_b2_d"] = td_v_a1_score_b2_d
+  rsopen_output_res[pc,"td_vs_a1_b3_d"] = td_v_a1_score_b3_d
+  rsopen_output_res[pc,"td_vs_a1_b4_d"] = td_v_a1_score_b4_d
+  rsopen_output_res[pc,"td_vs_a1_b5_d"] = td_v_a1_score_b5_d
+  rsopen_output_res[pc,"td_vs_a1_mean_d"] = td_v_a1_score_mean_d
+  
+  rsopen_output_res[pc,"td_vs_a2_b1_d"] = td_v_a2_score_b1_d
+  rsopen_output_res[pc,"td_vs_a2_b2_d"] = td_v_a2_score_b2_d
+  rsopen_output_res[pc,"td_vs_a2_b3_d"] = td_v_a2_score_b3_d
+  rsopen_output_res[pc,"td_vs_a2_b4_d"] = td_v_a2_score_b4_d
+  rsopen_output_res[pc,"td_vs_a2_b5_d"] = td_v_a2_score_b5_d
+  rsopen_output_res[pc,"td_vs_a2_mean_d"] = td_v_a2_score_mean_d
+  
+  
+  # ## UNCOMMENT TO GET PLOTS FOR EACH COMPONENT
+  # ## PLOTS
+  # # plot scores for each block across subtypes
+  # p = ggplot(data =  data4model, aes(x = subtype, y = Score)) +
+  #   facet_grid(block ~ ., labeller = label_both) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.2, size = 1 , width = .2) +
+  #   geom_boxplot(alpha = 0, width = .7, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "Scores\n", title = pc, subtitle = "Scores by block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 8),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"pca",sprintf("07_adjH_PCAscores_%s.pdf", pc)))
+  # 
+  # # Plot scores for each subtype collapsing across blocks
+  # p = ggplot(data = data4model, aes(x = subtype, y = Score)) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.15, size = 2 , width = .25) +
+  #   geom_boxplot(alpha = 0, width = .7, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "Score\n", title = pc, subtitle = "Score values by subtype\n")  +
+  #   scale_x_discrete(labels=c('td', 'a1', 'a2')) +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 10),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"H",sprintf("07_adjH_PCAscores_%s_blockscollapsed.pdf", pc)))
+  # 
+  # 
+  # # plot PCA scores for each block collapsing groups
+  # p = ggplot(data = data4model, aes(x = age, y = Score)) +
+  #   facet_grid(. ~ block, labeller = label_both) +
+  #   geom_point(alpha = 0.5, size = .1, color = 'burlywood1') + geom_smooth(method = lm, color = "pink4", level = .95) +
+  #   # stat_cor(p.accuracy = 0.001, r.accuracy = 0.01, label.y.npc="top", label.x.npc = "left", size = 2.2) +
+  #   labs(x = "\nage", y = "Scores\n", title = pc, subtitle = "Scores across age for each block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 15),
+  #         plot.subtitle = element_text(size = 14),
+  #         axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+  #         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+  #         legend.position = "none",
+  #         aspect.ratio = 1)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"pca",sprintf("07_adjH_PCAscores_%s_age_groupscollapsed.pdf", pc)))
+  # 
+  # # plot PC scores across age for each block
+  # p = ggplot(data = data4model, aes(x = age, y = Score, colour = subtype)) +
+  #   facet_grid(. ~ block, labeller = label_both) +
+  #   geom_point(alpha = 0.5, size = .1) +
+  #   geom_smooth(method = lm, level = .95) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "Scores\n", title = pc, subtitle = "Scores across age for each block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 15),
+  #         plot.subtitle = element_text(size = 14),
+  #         axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+  #         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+  #         aspect.ratio = 1)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"pca",sprintf("07_adjH_PCAscores_%s_age.pdf", pc)))
+  # 
+  # 
+  # # plot PC scores across age collapsing blocks
+  # p = ggplot(data = data4model, aes(x = age, y = Score, colour = subtype)) +
+  #   geom_point(alpha = 0.5, size = .1) +
+  #   geom_smooth(method = lm, level = .95) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "Scores\n", title = pc, subtitle = "Scores across age\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 15),
+  #         plot.subtitle = element_text(size = 14),
+  #         axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+  #         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+  #         aspect.ratio = .5)
+  # 
+  # ggsave(filename = file.path(rsopen_plotpath,"pca",sprintf("07_adjH_PCAscores_%s_age_blockscollapsed.pdf", pc)))
+  # 
+  #=============================================================================
+  # resting state eyes closed
+  # prepare data for the modeling and plotting
+  data4model = rsec_data %>% filter(PC==pc) 
+  
+  # scale data
+  vars2scale = c("Score","age")
+  scaled_data = scale_variables(data4model[,c("subid","subtype","block","study_site",vars2scale)],vars2scale)
+  
+  # run linear mixed effect model
+  form2use = as.formula("Score ~ subtype*age + (1|study_site) + (block|subid)")
+  ctrl = lmerControl(optCtrl=list(maxfun=nreps_sim), 
+                     check.conv.singular = .makeCC(action = "ignore",  tol = 1e-4),
+                     check.nobs.vs.nRE= "ignore")
+  m_allgrps = eval(substitute(lmer(formula = form2use, data = scaled_data, na.action = na.omit, control = ctrl)))
+  
+  # grab aov and summary on the model
+  aov_res = anova(m_allgrps)
+  lme_res = summary(m_allgrps)
+  
+  # run linear mixed effect model on td v a1
+  scaled_data_tdva1 = scaled_data %>% filter(subtype != "a2")
+  m_tdva1 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva1, na.action = na.omit, control = ctrl)))
+  lme_res_tdva1 = summary(m_tdva1)
+  
+  # run linear mixed effect model on td v a1
+  scaled_data_tdva2 = scaled_data %>% filter(subtype != "a1")
+  m_tdva2 = eval(substitute(lmer(formula = form2use, data = scaled_data_tdva2, na.action = na.omit, control = ctrl)))
+  lme_res_tdva2 = summary(m_tdva2)
+  
+  
+  # calculate effect sizes
+  scaled_data$Score = as.numeric(scaled_data$Score) # if inputted as a matrix the function breaks
+  
+  a1_v_a2_score_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$Score)
+  a1_v_a2_score_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$Score)
+  a1_v_a2_score_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$Score)
+  a1_v_a2_score_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$Score)
+  a1_v_a2_score_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$Score, scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$Score)
+  a1_v_a2_score_mean_d = mean(c(a1_v_a2_score_b1_d, a1_v_a2_score_b2_d, a1_v_a2_score_b3_d, a1_v_a2_score_b4_d, a1_v_a2_score_b5_d))
+  
+  td_v_a1_score_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 1,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$Score)
+  td_v_a1_score_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 2,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$Score)
+  td_v_a1_score_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 3,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$Score)
+  td_v_a1_score_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 4,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$Score)
+  td_v_a1_score_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a1" & scaled_data$block == 5,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$Score)
+  td_v_a1_score_mean_d = mean(c(td_v_a1_score_b1_d, td_v_a1_score_b2_d, td_v_a1_score_b3_d, td_v_a1_score_b4_d, td_v_a1_score_b5_d))
+  
+  
+  td_v_a2_score_b1_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 1,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 1,]$Score)
+  td_v_a2_score_b2_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 2,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 2,]$Score)
+  td_v_a2_score_b3_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 3,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 3,]$Score)
+  td_v_a2_score_b4_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 4,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 4,]$Score)
+  td_v_a2_score_b5_d = cohens_d(scaled_data[scaled_data$subtype == "a2" & scaled_data$block == 5,]$Score, scaled_data[scaled_data$subtype == "td" & scaled_data$block == 5,]$Score)
+  td_v_a2_score_mean_d = mean(c(td_v_a2_score_b1_d, td_v_a2_score_b2_d, td_v_a2_score_b3_d, td_v_a2_score_b4_d, td_v_a2_score_b5_d))
+  
+  # save output 
+  rsclosed_output_res[pc,"principal_component"] = pc
+  
+  rsclosed_output_res[pc,"subtype_F"] = aov_res["subtype","F value"]  
+  rsclosed_output_res[pc,"subtype_p"] = aov_res["subtype","Pr(>F)"] 
+  
+  rsclosed_output_res[pc,"age_F"] = aov_res["age","F value"]  
+  rsclosed_output_res[pc,"age_p"] = aov_res["age","Pr(>F)"]  
+  
+  rsclosed_output_res[pc,"subtypeXage_F"] = aov_res["subtype:age","F value"]  
+  rsclosed_output_res[pc,"subtypeXage_p"] = aov_res["subtype:age","Pr(>F)"]
+  
+  rsclosed_output_res[pc,"td_vs_a1_t"] = lme_res_tdva1$coefficients["subtypea1","t value"] 
+  rsclosed_output_res[pc,"td_vs_a1_p"] = lme_res_tdva1$coefficients["subtypea1","Pr(>|t|)"] 
+  
+  rsclosed_output_res[pc,"td_vs_a2_t"] = lme_res_tdva2$coefficients["subtypea2","t value"] 
+  rsclosed_output_res[pc,"td_vs_a2_p"] = lme_res_tdva2$coefficients["subtypea2","Pr(>|t|)"]
+  
+  rsclosed_output_res[pc,"a1_vs_a2_b1_d"] = a1_v_a2_score_b1_d
+  rsclosed_output_res[pc,"a1_vs_a2_b2_d"] = a1_v_a2_score_b2_d
+  rsclosed_output_res[pc,"a1_vs_a2_b3_d"] = a1_v_a2_score_b3_d
+  rsclosed_output_res[pc,"a1_vs_a2_b4_d"] = a1_v_a2_score_b4_d
+  rsclosed_output_res[pc,"a1_vs_a2_b5_d"] = a1_v_a2_score_b5_d
+  rsclosed_output_res[pc,"a1_vs_a2_mean_d"] = a1_v_a2_score_mean_d
+  
+  rsclosed_output_res[pc,"td_vs_a1_b1_d"] = td_v_a1_score_b1_d
+  rsclosed_output_res[pc,"td_vs_a1_b2_d"] = td_v_a1_score_b2_d
+  rsclosed_output_res[pc,"td_vs_a1_b3_d"] = td_v_a1_score_b3_d
+  rsclosed_output_res[pc,"td_vs_a1_b4_d"] = td_v_a1_score_b4_d
+  rsclosed_output_res[pc,"td_vs_a1_b5_d"] = td_v_a1_score_b5_d
+  rsclosed_output_res[pc,"td_vs_a1_mean_d"] = td_v_a1_score_mean_d
+  
+  rsclosed_output_res[pc,"td_vs_a2_b1_d"] = td_v_a2_score_b1_d
+  rsclosed_output_res[pc,"td_vs_a2_b2_d"] = td_v_a2_score_b2_d
+  rsclosed_output_res[pc,"td_vs_a2_b3_d"] = td_v_a2_score_b3_d
+  rsclosed_output_res[pc,"td_vs_a2_b4_d"] = td_v_a2_score_b4_d
+  rsclosed_output_res[pc,"td_vs_a2_b5_d"] = td_v_a2_score_b5_d
+  rsclosed_output_res[pc,"td_vs_a2_mean_d"] = td_v_a2_score_mean_d
+  
+  
+  # ## UNCOMMENT TO GET PLOTS FOR EACH COMPONENT
+  # ## PLOTS
+  # # plot scores for each block across subtypes
+  # p = ggplot(data =  data4model, aes(x = subtype, y = Score)) +
+  #   facet_grid(block ~ ., labeller = label_both) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.2, size = 1 , width = .2) +
+  #   geom_boxplot(alpha = 0, width = .7, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "Scores\n", title = pc, subtitle = "Scores by block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 8),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"pca",sprintf("07_adjH_PCAscores_%s.pdf", pc)))
+  # 
+  # # Plot scores for each subtype collapsing across blocks
+  # p = ggplot(data = data4model, aes(x = subtype, y = Score)) +
+  #   geom_jitter(aes(col = subtype), alpha = 0.15, size = 2 , width = .25) +
+  #   geom_boxplot(alpha = 0, width = .7, outlier.shape = NA) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nsubtype", y = "Score\n", title = pc, subtitle = "Score values by subtype\n")  +
+  #   scale_x_discrete(labels=c('td', 'a1', 'a2')) +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 12),
+  #         plot.subtitle = element_text(size = 11),
+  #         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10),
+  #         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 10),
+  #         legend.position = "none",
+  #         aspect.ratio = 0.3)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"H",sprintf("07_adjH_PCAscores_%s_blockscollapsed.pdf", pc)))
+  # 
+  # 
+  # # plot PCA scores for each block collapsing groups
+  # p = ggplot(data = data4model, aes(x = age, y = Score)) +
+  #   facet_grid(. ~ block, labeller = label_both) +
+  #   geom_point(alpha = 0.5, size = .1, color = 'burlywood1') + geom_smooth(method = lm, color = "pink4", level = .95) +
+  #   # stat_cor(p.accuracy = 0.001, r.accuracy = 0.01, label.y.npc="top", label.x.npc = "left", size = 2.2) +
+  #   labs(x = "\nage", y = "Scores\n", title = pc, subtitle = "Scores across age for each block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 15),
+  #         plot.subtitle = element_text(size = 14),
+  #         axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+  #         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+  #         legend.position = "none",
+  #         aspect.ratio = 1)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"pca",sprintf("07_adjH_PCAscores_%s_age_groupscollapsed.pdf", pc)))
+  # 
+  # 
+  # # plot PC scores across age for each block
+  # p = ggplot(data = data4model, aes(x = age, y = Score, colour = subtype)) +
+  #   facet_grid(. ~ block, labeller = label_both) +
+  #   geom_point(alpha = 0.5, size = .1) +
+  #   geom_smooth(method = lm, level = .95) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "Scores\n", title = pc, subtitle = "Scores across age for each block\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 15),
+  #         plot.subtitle = element_text(size = 14),
+  #         axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+  #         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+  #         aspect.ratio = 1)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"pca",sprintf("07_adjH_PCAscores_%s_age.pdf", pc)))
+  # 
+  # # plot PC scores across age collapsing blocks
+  # p = ggplot(data = data4model, aes(x = age, y = Score, colour = subtype)) +
+  #   geom_point(alpha = 0.5, size = .1) +
+  #   geom_smooth(method = lm, level = .95) +
+  #   scale_color_manual(values = colors4plots) +
+  #   labs(x = "\nage", y = "Scores\n", title = pc, subtitle = "Scores across age\n")  +
+  #   theme_bw() +
+  #   theme(plot.title = element_text(size = 15),
+  #         plot.subtitle = element_text(size = 14),
+  #         axis.title.x = element_text(size = 12), axis.title.y = element_text(size = 12),
+  #         axis.text.x = element_text(size = 12), axis.text.y = element_text(size = 12),
+  #         aspect.ratio = .5)
+  # 
+  # ggsave(filename = file.path(rsclosed_plotpath,"pca",sprintf("07_adjH_PCAscores_%s_age_blockscollapsed.pdf", pc)))
+  
+}
+
+# compute FDR
+rsopen_output_res[,"subtype_fdr"] = p.adjust(rsopen_output_res[,"subtype_p"], method = "fdr")  
+rsopen_output_res[,"age_fdr"] = p.adjust(rsopen_output_res[,"age_p"], method = "fdr")  
+rsopen_output_res[,"subtypeXage_fdr"] = p.adjust(rsopen_output_res[,"subtypeXage_p"], method = "fdr")
+rsopen_output_res[,"td_vs_a1_fdr"] = p.adjust(rsopen_output_res[,"td_vs_a1_p"], method = "fdr")
+rsopen_output_res[,"td_vs_a2_fdr"] = p.adjust(rsopen_output_res[,"td_vs_a2_p"], method = "fdr")
+
+rsclosed_output_res[,"subtype_fdr"] = p.adjust(rsclosed_output_res[,"subtype_p"], method = "fdr")  
+rsclosed_output_res[,"age_fdr"] = p.adjust(rsclosed_output_res[,"age_p"], method = "fdr")  
+rsclosed_output_res[,"subtypeXage_fdr"] = p.adjust(rsclosed_output_res[,"subtypeXage_p"], method = "fdr")
+rsclosed_output_res[,"td_vs_a1_fdr"] = p.adjust(rsclosed_output_res[,"td_vs_a1_p"], method = "fdr")
+rsclosed_output_res[,"td_vs_a2_fdr"] = p.adjust(rsclosed_output_res[,"td_vs_a2_p"], method = "fdr")
+
+
+# show results for Resting State Eyes Open
+rsopen_output_res
+
+# show results for Resting State Eyes Closed
+rsclosed_output_res
+
+```
+
+### Save results
+```{r, message = FALSE, warning = FALSE}
+write.csv(rsopen_output_res, file = file.path(resultpath,"07_adjH_rsopen_PCA_subtype*age.csv"))
+write.csv(rsclosed_output_res, file = file.path(resultpath,"07_adjH_rsclosed_PCA_subtype*age.csv"))
+```
+
+<!-- ###  -->
+<!-- ```{r, message = FALSE, warning = FALSE} -->
+<!-- p = ggplot(data =  data4model, aes(x = study_site, y = Score)) + -->
+<!--   facet_grid(block ~ ., labeller = label_both) + -->
+<!--   geom_jitter(aes(col = study_site), alpha = 0.2, size = 1 , width = .2) + -->
+<!--   geom_boxplot(alpha = 0, width = .7, outlier.shape = NA) + -->
+<!--   scale_color_manual(values = colors4plots) + -->
+<!--   labs(x = "\nsubtype", y = "Scores\n", title = pc, subtitle = "Scores by block\n")  + -->
+<!--   theme_bw() + -->
+<!--   theme(plot.title = element_text(size = 12), -->
+<!--         plot.subtitle = element_text(size = 11), -->
+<!--         axis.title.x = element_text(size = 10), axis.title.y = element_text(size = 10), -->
+<!--         axis.text.x = element_text(size = 10, colour = colors4plots), axis.text.y = element_text(size = 8), -->
+<!--         legend.position = "none", -->
+<!--         aspect.ratio = 0.3) -->
+<!-- ``` -->

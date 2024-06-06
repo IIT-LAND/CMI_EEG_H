@@ -1,0 +1,1020 @@
+---
+title: "Analysis Final"
+author: "Michael Lombardo"
+date: "12/04/2024"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Libraries and paths
+
+```{r, warning=FALSE, message=FALSE}
+# Libraries
+library(easypackages)
+libraries("here","tidyverse","ggeasy","patchwork","reshape2")
+
+fontSize = 16
+dotSize = 2
+alphaVal = 0.5
+dot_cols2use = c("#404040","#a3142e")
+dtype_cols2use = c("#7ab5ed","#171c9e")
+
+# Paths
+codedir = here("code")
+plotdir = here("plots")
+datadir = here("data")
+
+
+# functions that will be used over and over again
+
+# make_scatterplot
+make_scatterplot <- function(data2plot, x_var, y_var, strat_var, 
+                             xlabel2use, ylabel2use, title2use,
+                             vlineval=NULL,plot_fit_line=FALSE,plot_diag_line=FALSE,
+                             dotSize=2, fontSize=16, alphaVal=0.5,
+                             cols2use=c("#404040","#a3142e")
+                             ){
+  
+  p = ggplot(data = data2plot, aes_string(x = x_var, y = y_var, colour= strat_var))
+  
+  if (is.null(alphaVal)){
+    p = p + geom_point(size = dotSize)
+  } else{
+    p = p + geom_point(size = dotSize, alpha = alphaVal) 
+  }
+  
+  p = p + 
+    scale_colour_manual(values=cols2use) + 
+    xlab(xlabel2use) +  
+    ylab(ylabel2use) + 
+    ggtitle(title2use) +
+    easy_center_title() +
+    guides(colour="none")+
+    theme_bw() + 
+    theme(plot.title = element_text(hjust = 0.5, size=fontSize),
+        strip.text.y = element_text(size=fontSize),
+        axis.text.x = element_text(size=fontSize),
+        axis.text.y = element_text(size=fontSize-2),
+        axis.title.x = element_text(size=fontSize),
+        axis.title.y = element_text(size=fontSize),
+        strip.text = element_text(size = fontSize))
+  
+  if (!is.null(vlineval)){
+    p = p + geom_vline(xintercept = vlineval) 
+  }
+  
+  if (plot_fit_line){
+    p = p + geom_smooth(method = lm, se=FALSE, aes_string(group=strat_var))
+  }
+  
+  if (plot_diag_line){
+    p = p + geom_abline(intercept = 0, slope = 1, colour = "black")
+  }
+  
+  return(p)
+  
+} # function make_scatterplot
+
+# out_of_sample_prediction
+out_of_sample_prediction <- function(trn_data, val_data, dv_var, pred_var){
+  
+  form2use = as.formula(sprintf("%s ~ %s", dv_var, pred_var))
+  mod2use = lm(formula = form2use, data = trn_data)
+  val_data$pred = predict(mod2use, val_data)
+  
+  # compute R-squared
+  rss = sum((val_data[,"pred"] - val_data[,dv_var])^2)  ## residual sum of squares
+  tss = sum((val_data[,dv_var] - mean(val_data[,dv_var]))^2)  ## total sum of squares
+  rsq = 1 - (rss/tss)
+  
+  res_list = list(trn_data = trn_data,
+                  val_data = val_data,
+                  mod2use = mod2use, 
+                  rsq = rsq)
+  return(res_list)
+} # out_of_sample_prediction
+
+```
+
+# Read in data
+
+```{r, warning=FALSE, message=FALSE}
+g_eeg_H_data = read.csv(file.path(datadir,"tidy_H_g_EEG_data.csv"))
+g_lfp_H_data = read.csv(file.path(datadir,"tidy_H_g_LFP_data.csv"))
+g_h_data = rbind(g_eeg_H_data, g_lfp_H_data)
+
+g_eeg_slope_data = read.csv(file.path(datadir,"tidy_slope_g_EEG_data.csv"))
+g_lfp_slope_data = read.csv(file.path(datadir,"tidy_slope_g_LFP_data.csv"))
+g_slope_data = rbind(g_eeg_slope_data, g_lfp_slope_data)
+
+g_eeg_pow_data = read.csv(file.path(datadir,"tidy_pow_g_EEG_data.csv"))
+g_lfp_pow_data = read.csv(file.path(datadir,"tidy_pow_g_LFP_data.csv"))
+g_pow_data = rbind(g_eeg_pow_data, g_lfp_pow_data)
+
+
+camk_eeg_H_data = read.csv(file.path(datadir,"tidy_H_camk_EEG_data.csv"))
+camk_lfp_H_data = read.csv(file.path(datadir,"tidy_H_camk_LFP_data.csv"))
+camk_h_data = rbind(camk_eeg_H_data, camk_lfp_H_data)
+
+camk_eeg_slope_data = read.csv(file.path(datadir,"tidy_slope_camk_EEG_data.csv"))
+camk_lfp_slope_data = read.csv(file.path(datadir,"tidy_slope_camk_LFP_data.csv"))
+camk_slope_data = rbind(camk_eeg_slope_data, camk_lfp_slope_data)
+
+camk_eeg_pow_data = read.csv(file.path(datadir,"tidy_pow_camk_EEG_data.csv"))
+camk_lfp_pow_data = read.csv(file.path(datadir,"tidy_pow_camk_LFP_data.csv"))
+camk_pow_data = rbind(camk_eeg_pow_data, camk_lfp_pow_data)
+
+
+hm4di_eeg_H_data = read.csv(file.path(datadir,"tidy_H_hm4di_EEG_data.csv"))
+hm4di_lfp_H_data = read.csv(file.path(datadir,"tidy_H_hm4di_LFP_data.csv"))
+hm4di_h_data = rbind(hm4di_eeg_H_data, hm4di_lfp_H_data)
+
+hm4di_eeg_slope_data = read.csv(file.path(datadir,"tidy_slope_hm4di_EEG_data.csv"))
+hm4di_lfp_slope_data = read.csv(file.path(datadir,"tidy_slope_hm4di_LFP_data.csv"))
+hm4di_slope_data = rbind(hm4di_eeg_slope_data, hm4di_lfp_slope_data)
+
+hm4di_eeg_pow_data = read.csv(file.path(datadir,"tidy_pow_hm4di_EEG_data.csv"))
+hm4di_lfp_pow_data = read.csv(file.path(datadir,"tidy_pow_hm4di_LFP_data.csv"))
+hm4di_pow_data = rbind(hm4di_eeg_pow_data, hm4di_lfp_pow_data)
+```
+
+# Plot Firing Rate by g
+
+```{r, warning=FALSE, message=FALSE}
+# Scatterplot of Firing rate by g
+data2plot = g_h_data %>%  
+  filter(dset=="training") %>% 
+  filter(measure=="EEG") %>%
+  select(fr_exc, fr_inh, param) %>% 
+  distinct() %>% 
+  melt(id.vars=c("param"))
+
+vlineval = 0.0885
+yLabel = "Firing Rate (Hz)"
+xLabel = expression("g =" ~ g[E]/g[I])
+title2use = xLabel
+cols2use = dot_cols2use
+
+FR_g_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "variable", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            alphaVal = NULL)
+FR_g_plot
+
+# correlation with g in E neurons
+data2use = data2plot %>% filter(variable=="fr_exc")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in I neurons
+data2use = data2plot %>% filter(variable=="fr_inh")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+```
+
+# Plot Firing Rate by Camk El
+
+```{r, warning=FALSE, message=FALSE}
+# Scatterplot of Firing rate by Camk El
+data2plot = camk_h_data %>%  
+  filter(dset=="training") %>% 
+  filter(measure=="EEG") %>%
+  select(fr_exc, fr_inh, param) %>% 
+  distinct() %>% 
+  melt(id.vars=c("param"))
+
+vlineval = -70
+yLabel = "Firing Rate (Hz)"
+xLabel = "Resting Potential (mV)"
+title2use = "CamkII-hM3D(Gq)"
+cols2use = dot_cols2use
+
+FR_camk_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "variable", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use,
+                            alphaVal = NULL)
+FR_camk_El_plot
+
+# correlation with g in E neurons
+data2use = data2plot %>% filter(variable=="fr_exc")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in I neurons
+data2use = data2plot %>% filter(variable=="fr_inh")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+```
+
+# Plot Firing Rate by hM4Di El
+
+```{r, warning=FALSE, message=FALSE}
+# Scatterplot of Firing rate by hM4Di El
+data2plot = hm4di_h_data %>%  
+  filter(dset=="training") %>% 
+  filter(measure=="EEG") %>%
+  select(fr_exc, fr_inh, param) %>% 
+  distinct() %>% 
+  melt(id.vars=c("param"))
+
+vlineval = -70
+yLabel = "Firing Rate (Hz)"
+xLabel = "Resting Potential (mV)"
+title2use = "hM4Di"
+cols2use = dot_cols2use
+
+FR_hm4di_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "variable", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use,
+                            alphaVal = NULL)
+FR_hm4di_El_plot
+
+# correlation with g in E neurons
+data2use = data2plot %>% filter(variable=="fr_exc")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in I neurons
+data2use = data2plot %>% filter(variable=="fr_inh")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+```
+
+# Analysis of E:I ratio simulation
+
+```{r, warning=FALSE, message=FALSE}
+# ==============================================================================
+# H
+# Scatterplot against g
+data2plot = g_h_data %>% filter(dset=="training")
+
+vlineval = 0.0885
+yLabel = "H"
+xLabel = expression("g =" ~ g[E]/g[I])
+title2use = xLabel
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+H_g_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+H_g_plot
+
+# correlation with g in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = g_h_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = g_h_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = g_h_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = g_h_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+title2use = expression("g =" ~ g[E]/g[I])
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+H_g_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+H_g_oos_plot
+
+
+
+
+
+
+
+# ==============================================================================
+# 1/f slope
+# Scatterplot against g
+data2plot = g_slope_data %>% filter(dset=="training")
+
+vlineval = 0.0885
+yLabel = "1/f slope"
+xLabel = expression("g =" ~ g[E]/g[I])
+title2use = xLabel
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+slope_g_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+slope_g_plot
+
+# correlation with g in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = g_slope_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = g_slope_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = g_slope_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = g_slope_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+title2use = expression("g =" ~ g[E]/g[I])
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+slope_g_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+slope_g_oos_plot
+
+
+
+
+
+
+# ==============================================================================
+# Power
+# Scatterplot against g
+data2plot = g_pow_data %>% filter(dset=="training")
+
+vlineval = 0.0885
+yLabel = "Broadband Power (a.u.)"
+xLabel = expression("g =" ~ g[E]/g[I])
+title2use = xLabel
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+pow_g_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+pow_g_plot
+
+# correlation with g in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = g_pow_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = g_pow_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = g_pow_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = g_pow_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+title2use = expression("g =" ~ g[E]/g[I])
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+pow_g_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+pow_g_oos_plot
+```
+
+# Analysis of CamK
+
+```{r, warning=FALSE, message=FALSE}
+title2use = "CamkII-hM3D(Gq)"
+
+# ==============================================================================
+# H
+# Scatterplot against El
+data2plot = camk_h_data %>% filter(dset=="training")
+
+vlineval = -70
+yLabel = "H"
+xLabel = "Resting Potential (mV)"
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+H_camk_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+H_camk_El_plot
+
+# correlation with El in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with El in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = camk_h_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = camk_h_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = camk_h_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = camk_h_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+H_camk_El_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+H_camk_El_oos_plot
+
+
+
+
+
+
+
+# ==============================================================================
+# 1/f slope
+# Scatterplot against El
+data2plot = camk_slope_data %>% filter(dset=="training")
+
+vlineval = -70
+yLabel = "1/f slope"
+xLabel = "Resting Potential (mV)"
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+slope_camk_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+slope_camk_El_plot
+
+# correlation with g in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = camk_slope_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = camk_slope_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = camk_slope_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = camk_slope_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+slope_camk_El_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+slope_camk_El_oos_plot
+
+
+
+
+
+
+# ==============================================================================
+# Power
+# Scatterplot against g
+data2plot = camk_pow_data %>% filter(dset=="training")
+
+vlineval = -70
+yLabel = "Broadband Power (a.u.)"
+xLabel = "Resting Potential (mV)"
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+pow_camk_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+pow_camk_El_plot
+
+# correlation with g in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = camk_pow_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = camk_pow_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = camk_pow_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = camk_pow_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+pow_camk_El_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+pow_camk_El_oos_plot
+```
+
+# Analysis of hM4Di
+
+```{r, warning=FALSE, message=FALSE}
+title2use = "hM4Di"
+
+# ==============================================================================
+# H
+# Scatterplot against El
+data2plot = hm4di_h_data %>% filter(dset=="training")
+
+vlineval = -70
+yLabel = "H"
+xLabel = "Resting Potential (mV)"
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+H_hm4di_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+H_hm4di_El_plot
+
+# correlation with El in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with El in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = hm4di_h_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = hm4di_h_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = hm4di_h_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = hm4di_h_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+H_hm4di_El_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+H_hm4di_El_oos_plot
+
+
+
+
+
+
+
+# ==============================================================================
+# 1/f slope
+# Scatterplot against El
+data2plot = hm4di_slope_data %>% filter(dset=="training")
+
+vlineval = -70
+yLabel = "1/f slope"
+xLabel = "Resting Potential (mV)"
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+slope_hm4di_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+slope_hm4di_El_plot
+
+# correlation with g in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = hm4di_slope_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = hm4di_slope_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = hm4di_slope_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = hm4di_slope_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+slope_hm4di_El_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+slope_hm4di_El_oos_plot
+
+
+
+
+
+
+# ==============================================================================
+# Power
+# Scatterplot against g
+data2plot = hm4di_pow_data %>% filter(dset=="training")
+
+vlineval = -70
+yLabel = "Broadband Power (a.u.)"
+xLabel = "Resting Potential (mV)"
+cols2use = dtype_cols2use
+plot_fit_line = TRUE
+
+pow_hm4di_El_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "param",
+                            y_var = "value",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_fit_line = plot_fit_line)
+pow_hm4di_El_plot
+
+# correlation with g in LFP
+data2use = data2plot %>% filter(measure=="LFP")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+# correlation with g in EEG
+data2use = data2plot %>% filter(measure=="EEG")
+res = cor.test(data2use[,"param"], data2use[,"value"])
+res
+res$p.value
+
+
+# ==============================================================================
+# out of sample prediction
+trn_eeg_data = hm4di_pow_data %>% filter(dset=="training") %>% filter(measure=="EEG")
+val_eeg_data = hm4di_pow_data %>% filter(dset=="validation") %>% filter(measure=="EEG")
+oos_res_eeg = out_of_sample_prediction(trn_data = trn_eeg_data, 
+                                   val_data = val_eeg_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("EEG R-sq = %f",oos_res_eeg$rsq))
+
+trn_lfp_data = hm4di_pow_data %>% filter(dset=="training") %>% filter(measure=="LFP")
+val_lfp_data = hm4di_pow_data %>% filter(dset=="validation") %>% filter(measure=="LFP")
+oos_res_lfp = out_of_sample_prediction(trn_data = trn_lfp_data, 
+                                   val_data = val_lfp_data, 
+                                   dv_var="fr_tot", 
+                                   pred_var="value")
+print(sprintf("LFP R-sq = %f",oos_res_lfp$rsq))
+
+# make plot of actual vs predicted
+data2plot = rbind(oos_res_eeg$val_data, oos_res_lfp$val_data)
+
+vlineval = NULL
+yLabel = "Predicted Firing Rate (Hz)"
+xLabel = "Actual Firing Rate (Hz)"
+cols2use = dtype_cols2use
+plot_diag_line = TRUE
+
+pow_hm4di_El_oos_plot = make_scatterplot(data2plot = data2plot, 
+                            x_var = "fr_tot",
+                            y_var = "pred",
+                            strat_var = "measure", 
+                            vlineval = vlineval, 
+                            xlabel2use = xLabel, 
+                            ylabel2use = yLabel, 
+                            title2use = title2use, 
+                            cols2use = cols2use, 
+                            plot_diag_line = plot_diag_line)
+pow_hm4di_El_oos_plot
+```
+
+# Plots
+
+```{r, warning=FALSE, message=FALSE}
+fig1 = (FR_g_plot + FR_camk_El_plot + FR_hm4di_El_plot) / 
+  (H_g_plot + H_camk_El_plot + H_hm4di_El_plot) / 
+  (H_g_oos_plot + H_camk_El_oos_plot + H_hm4di_El_oos_plot)
+ggsave(filename = file.path(plotdir, "Figure01.pdf"), plot = fig1, width = 12, height = 12)
+fig1
+
+supp_fig1a = (slope_g_plot + slope_camk_El_plot + slope_hm4di_El_plot) / 
+  (slope_g_oos_plot + slope_camk_El_oos_plot + slope_hm4di_El_oos_plot)
+ggsave(filename = file.path(plotdir, "SuppFig01a.pdf"), plot = supp_fig1a, width = 12, height = 8)
+supp_fig1a
+
+supp_fig1b = (pow_g_plot + pow_camk_El_plot + pow_hm4di_El_plot) / 
+  (pow_g_oos_plot + pow_camk_El_oos_plot + pow_hm4di_El_oos_plot)
+ggsave(filename = file.path(plotdir, "SuppFig01b.pdf"), plot = supp_fig1b, width = 12, height = 8)
+supp_fig1b
+```
+
+
